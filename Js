@@ -1,0 +1,65 @@
+import { ExponentialCost, LinearCost } from "./api/Costs";
+import { BigNumber } from "./api/BigNumber";
+import { theory } from "./api/Theory";
+import { Utils } from "./api/Utils";
+
+export default class HodgeConjecture extends theory.Theory {
+    constructor() {
+        super("Hodge Conjecture Theory");
+
+        // Variables (Cycles)
+        this.x = this.addVariable("1-Cycles", BigNumber.from(0), new ExponentialCost(BigNumber.from(10), BigNumber.from(1.1)));
+        this.y = this.addVariable("2-Cycles", BigNumber.from(0), new ExponentialCost(BigNumber.from(50), BigNumber.from(1.15)));
+        this.z = this.addVariable("3-Cycles", BigNumber.from(0), new ExponentialCost(BigNumber.from(200), BigNumber.from(1.2)));
+
+        // Prestige multiplier
+        this.prestigeLevel = 0;
+
+        // Upgrades
+        this.addUpgrade("Boost X", new ExponentialCost(BigNumber.from(100), BigNumber.from(2)), () => {
+            this.x.growth = lvl => BigNumber.from(1.2).pow(lvl);
+        });
+
+        this.addUpgrade("Boost Y", new ExponentialCost(BigNumber.from(500), BigNumber.from(2.5)), () => {
+            this.y.growth = (lvl, x) => x.plus(1).pow(0.85).times(BigNumber.from(1.05).pow(lvl));
+        });
+
+        this.addUpgrade("Boost Z", new ExponentialCost(BigNumber.from(2000), BigNumber.from(3)), () => {
+            this.z.growth = (lvl, y) => y.plus(1).sqrt().times(BigNumber.from(1.03).pow(lvl));
+        });
+
+        // Hodge Diamond passive (multiplies all growth based on sum of levels)
+        this.addUpgrade("Hodge Diamond", new ExponentialCost(BigNumber.from(5000), BigNumber.from(4)), () => {
+            this.diamondMultiplier = () => BigNumber.from(1).plus(this.x.level + this.y.level + this.z.level).pow(0.5);
+        });
+    }
+
+    tick() {
+        let diamond = this.diamondMultiplier ? this.diamondMultiplier() : BigNumber.from(1);
+
+        // Grow variables with diamond multiplier
+        this.x.add(this.x.growth(this.x.level).times(diamond));
+        this.y.add(this.y.growth(this.y.level, this.x.value).times(diamond));
+        this.z.add(this.z.growth(this.z.level, this.y.value).times(diamond));
+    }
+
+    getTau() {
+        // Convert cycles to τ
+        let baseTau = Utils.log10(this.x.value.plus(1))
+                    .plus(Utils.log10(this.y.value.plus(1)))
+                    .plus(Utils.log10(this.z.value.plus(1)));
+
+        // Apply prestige multiplier
+        let prestigeMult = BigNumber.from(1).plus(this.prestigeLevel).pow(1.5);
+
+        return baseTau.times(prestigeMult);
+    }
+
+    // Prestige mechanic
+    prestige() {
+        this.prestigeLevel += 1;
+        this.x.value = BigNumber.from(0);
+        this.y.value = BigNumber.from(0);
+        this.z.value = BigNumber.from(0);
+    }
+}
