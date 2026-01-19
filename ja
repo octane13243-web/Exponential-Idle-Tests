@@ -1,108 +1,89 @@
-import { ExponentialCost } from "./api/Costs";
-import { BigNumber } from "./api/BigNumber";
+import { ExponentialCost, FirstFreeCost } from "./api/Costs";
+import { BigNumber, parseBigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-// ---------- META ----------
-var id = "complex_analysis_safe";
-var name = "Complex Analysis";
-var description = "Growth of analytic functions in the complex plane.";
-var authors = "horchata";
+var id = "complex_ana_theory";
+var name = "Complex Analysis Growth";
+var description = "A theory exploring complex functions and their crazy behaviors.";
+var authors = "Horchata#0001";
 var version = 1;
+var releaseOrder = "1";
 
 requiresGameVersion("1.4.33");
 
-// ---------- STATE ----------
-var currency;
-var rho_dot = 0;
+var rho_dot = BigNumber.ZERO;
+var q = BigNumber.ZERO;
+var x1, x2, x3, x4, x5;
 
-var x1_level = 0; // derivative order
-var x2_level = 0; // contour radius
-
-var milestone;
-
-// ---------- INIT ----------
+// === Init function ===
 var init = () => {
-    currency = theory.createCurrency();
-    currency.value = BigNumber.ONE;
+    var currency = theory.createCurrency();
 
-    createUpgrades();
-    createMilestones();
-};
-
-// ---------- UPGRADES ----------
-var createUpgrades = () => {
-
-    // x_1
-    let x1 = theory.createUpgrade(
-        0,
-        currency,
-        new ExponentialCost(10, Math.log2(2))
-    );
-
+    // --- x1: Base holomorphic factor ---
+    x1 = theory.createUpgrade(0, currency, new ExponentialCost(1e2, Math.log2(10)));
     x1.getDescription = (_) => Utils.getMath("x_1");
     x1.getInfo = (_) => Utils.getMath("x_1");
-    x1.bought = (_) => { x1_level++; };
 
-    // x_2
-    let x2 = theory.createUpgrade(
-        1,
-        currency,
-        new ExponentialCost(50, Math.log2(3))
-    );
-
+    // --- x2: Complex exponential factor ---
+    x2 = theory.createUpgrade(1, currency, new ExponentialCost(1e3, Math.log2(15)));
     x2.getDescription = (_) => Utils.getMath("x_2");
     x2.getInfo = (_) => Utils.getMath("x_2");
-    x2.bought = (_) => { x2_level++; };
+
+    // --- x3: Product factor (milestone unlock later) ---
+    x3 = theory.createUpgrade(2, currency, new FirstFreeCost(new ExponentialCost(1e5, Math.log2(20))));
+    x3.getDescription = (_) => Utils.getMath("x_3");
+    x3.getInfo = (_) => Utils.getMath("x_3");
+
+    // --- x4: Integral factor (milestone unlock later) ---
+    x4 = theory.createUpgrade(3, currency, new ExponentialCost(1e7, Math.log2(25)));
+    x4.getDescription = (_) => Utils.getMath("x_4");
+    x4.getInfo = (_) => Utils.getMath("x_4");
+
+    // --- x5: Series sum factor (milestone unlock later) ---
+    x5 = theory.createUpgrade(4, currency, new ExponentialCost(1e9, Math.log2(30)));
+    x5.getDescription = (_) => Utils.getMath("x_5");
+    x5.getInfo = (_) => Utils.getMath("x_5");
+
+    // --- Story Chapter ---
+    theory.createStoryChapter(0, "Complex Beginnings", "You explore the wonders of complex functions...", () => currency.value >= 1);
 };
 
-// ---------- MILESTONE ----------
-var createMilestones = () => {
-    milestone = theory.createMilestoneUpgrade(0, 1);
-    milestone.getDescription = (_) => "Cauchy's Theorem";
-    milestone.getInfo = (_) => "Doubles growth";
-};
-
-// ---------- TICK ----------
+// === Tick function ===
 var tick = (elapsedTime, multiplier) => {
+    let dt = BigNumber.from(elapsedTime * multiplier);
+    let v1 = BigNumber.from(1 + x1.level * 0.1);
+    let v2 = BigNumber.from(1 + x2.level * 0.05);
+    let prodFactor = x3.level > 0 ? BigNumber.from(1 + x3.level * 0.02) : BigNumber.ONE;
+    let seriesFactor = x5.level > 0 ? BigNumber.from(1 + x5.level * 0.01) : BigNumber.ONE;
+    let integralFactor = x4.level > 0 ? BigNumber.from(1 + x4.level * 0.03) : BigNumber.ONE;
 
-    let base = (1 + x1_level) * (1 + x2_level);
+    // base complex-analysis-inspired equation
+    rho_dot = v1.mul((v2.mul(q).sin().add(q.add(BigNumber.ONE).ln())).abs())
+            .mul(prodFactor)
+            .mul(seriesFactor)
+            .mul(integralFactor);
 
-    if (milestone.level > 0)
-        base *= 2;
+    q += rho_dot.mul(dt);
 
-    rho_dot = base * elapsedTime * multiplier;
-
-    currency.value = BigNumber.from(
-        currency.value.toNumber() + rho_dot
-    );
+    theory.primaryEquationHeight = 50;
+    theory.primaryEquationScale = 1.0;
 };
 
-// ---------- PRIMARY EQUATION ----------
-theory.primaryEquationHeight = 40;
-theory.getPrimaryEquation = () =>
-    Utils.getMath(
-        "\\dot{\\rho} = (1 + x_1)(1 + x_2)" +
-        (milestone.level > 0 ? "\\cdot 2" : "")
-    );
-
-// ---------- SAVE / LOAD ----------
-var getInternalState = () =>
-    `${x1_level} ${x2_level} ${milestone.level}`;
-
-var setInternalState = (state) => {
-    let s = state.split(" ");
-    x1_level = parseInt(s[0]);
-    x2_level = parseInt(s[1]);
-    milestone.level = parseInt(s[2]);
+// === Primary Equation Display ===
+var getPrimaryEquation = () => {
+    return "\\dot{\\rho} = x_1 \\cdot |\\sin(x_2 q) + \\ln(1+q)|";
 };
 
-// ---------- RESET ----------
-var reset = () => {
-    x1_level = 0;
-    x2_level = 0;
-    rho_dot = 0;
-    currency.value = BigNumber.ONE;
-};
+// === Internal State Save/Load ===
+var getInternalState = () => q.toString();
+var setInternalState = (state) => { q = parseBigNumber(state); };
+
+// === Publication & Graph Functions ===
+var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.5);
+var getPublicationMultiplierFormula = (symbol) => symbol + "^{0.5}";
+var getTau = () => q.pow(0.1);
+var getCurrencyFromTau = (tau) => [tau.max(BigNumber.ONE).pow(10), currency.symbol];
+var get2DGraphValue = () => q.sign * (BigNumber.ONE + q.abs()).log10().toNumber();
 
 init();
