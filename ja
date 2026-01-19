@@ -1,65 +1,53 @@
-// --- Hodge Conjecture Theory (SDK version) ---
-import { ExponentialCost, LinearCost } from "./api/Costs";
-import { BigNumber } from "./api/BigNumber";
-import { theory } from "./api/Theory";
-import { Utils } from "./api/Utils";
+// Imports for Hodge SDK
+import { theory } from "../api/Theory";
+import { BigNumber } from "../api/BigNumber";
+import { LinearCost, ExponentialCost, FreeCost } from "../api/Costs";
+import { Utils } from "../api/Utils";
 
-// Meta
-var id = "hodge_conjecture";
-var name = "Hodge Conjecture";
-var description = "A minimal Hodge Conjecture theory example for SDK";
-var authors = "horchata";
-var version = "1.0.0";
+// Basic info
+var id = "hodge_skeleton";
+var name = "Hodge Skeleton";
+var description = "Barebones skeleton for Hodge Conjecture theory.";
+var authors = "horchata#0000";
+var version = "0.1.0";
 
-// Game variables
-var rho;    // main currency
-var x1, x2; // upgrades
-var publicationCount = 0;
+// Currency
+var rho;
 
-// Initialize theory
+// Upgrades
+var x1, x2;
+
+// Internal state
+var tickMultiplier = BigNumber.ONE;
+
+// Init function
 var init = () => {
     rho = theory.createCurrency();
 
     // Upgrades
-    x1 = theory.createUpgrade(0, rho, new ExponentialCost(1e3, Math.log2(2)));
-    x1.getDescription = (_) => "x₁ = " + x1.level;
-    x1.getInfo = (_) => "x₁ = " + x1.level;
+    x1 = theory.createUpgrade(0, rho, new LinearCost(1, 1));
+    x1.getDescription = (_) => "x1 upgrade";
+    x1.getInfo = (amount) => "Level: " + x1.level;
 
-    x2 = theory.createUpgrade(1, rho, new ExponentialCost(1e6, Math.log2(3)));
-    x2.getDescription = (_) => "x₂ = " + x2.level;
-    x2.getInfo = (_) => "x₂ = " + x2.level;
+    x2 = theory.createUpgrade(1, rho, new LinearCost(5, 5));
+    x2.getDescription = (_) => "x2 upgrade";
+    x2.getInfo = (amount) => "Level: " + x2.level;
 
-    // Publication upgrade
-    theory.createPublicationUpgrade(0, rho, 1e10);
+    theory.createPublicationUpgrade(2, rho, 1e8);
+
+    // Tick function
+    theory.setTickFunction((elapsedTime, multiplier) => {
+        // Convert everything to BigNumber
+        let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
+
+        let x1val = BigNumber.ONE.add(BigNumber.from(x1.level));
+        let x2val = BigNumber.ONE.add(BigNumber.from(x2.level));
+
+        let gain = x1val.mul(x2val).mul(dt).mul(BigNumber.from(theory.publicationMultiplier));
+
+        rho.value = rho.value.add(gain);
+    });
 };
 
-// Tick function
-var tick = (elapsedTime, multiplier) => {
-    var dt = BigNumber.from(elapsedTime).mul(multiplier);
-    var gain = BigNumber.ONE.add(BigNumber.from(x1.level))
-        .mul(BigNumber.ONE.add(BigNumber.from(x2.level)))
-        .mul(dt)
-        .mul(theory.publicationMultiplier);
-
-    rho.value = rho.value.add(gain);
-};
-
-// Primary equation (shown to player)
-var getPrimaryEquation = () => {
-    return "\\dot{\\rho} = (1 + x_1)(1 + x_2)";
-};
-
-// Secondary equation (optional)
-var getSecondaryEquation = () => {
-    return "rho = " + rho.value.toString();
-};
-
-// Reset function
-var reset = (hardReset) => {
-    x1.level = 0;
-    x2.level = 0;
-    rho.value = BigNumber.ONE;
-};
-
-// Run init
+// Call init to start
 init();
