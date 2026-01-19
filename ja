@@ -1,39 +1,65 @@
-var id = "barebones";
-var name = "Barebones Theory";
-var description = "A minimal skeleton theory to get you started.";
+// --- Hodge Conjecture Theory (SDK version) ---
+import { ExponentialCost, LinearCost } from "./api/Costs";
+import { BigNumber } from "./api/BigNumber";
+import { theory } from "./api/Theory";
+import { Utils } from "./api/Utils";
+
+// Meta
+var id = "hodge_conjecture";
+var name = "Hodge Conjecture";
+var description = "A minimal Hodge Conjecture theory example for SDK";
 var authors = "horchata";
 var version = "1.0.0";
 
-var rho;        // Currency
-var x1, x2;     // Upgrades
+// Game variables
+var rho;    // main currency
+var x1, x2; // upgrades
+var publicationCount = 0;
 
-//////////////////
-// Init function
+// Initialize theory
 var init = () => {
-    // Create main currency
     rho = theory.createCurrency();
 
-    // Create simple upgrades
-    x1 = theory.createUpgrade(0, rho, new ExponentialCost(10, Math.log2(2)));
+    // Upgrades
+    x1 = theory.createUpgrade(0, rho, new ExponentialCost(1e3, Math.log2(2)));
     x1.getDescription = (_) => "x₁ = " + x1.level;
     x1.getInfo = (_) => "x₁ = " + x1.level;
 
-    x2 = theory.createUpgrade(1, rho, new ExponentialCost(100, Math.log2(5)));
+    x2 = theory.createUpgrade(1, rho, new ExponentialCost(1e6, Math.log2(3)));
     x2.getDescription = (_) => "x₂ = " + x2.level;
     x2.getInfo = (_) => "x₂ = " + x2.level;
+
+    // Publication upgrade
+    theory.createPublicationUpgrade(0, rho, 1e10);
 };
 
-//////////////////
-// Tick function (calculates rho income)
+// Tick function
 var tick = (elapsedTime, multiplier) => {
-    let dt = elapsedTime * multiplier;
-    rho.value = rho.value + (x1.level + 1) * (x2.level + 1) * dt;
+    var dt = BigNumber.from(elapsedTime).mul(multiplier);
+    var gain = BigNumber.ONE.add(BigNumber.from(x1.level))
+        .mul(BigNumber.ONE.add(BigNumber.from(x2.level)))
+        .mul(dt)
+        .mul(theory.publicationMultiplier);
+
+    rho.value = rho.value.add(gain);
 };
 
-//////////////////
-// Publication multiplier
-var getPublicationMultiplier = (tau) => tau.pow(0.5);
+// Primary equation (shown to player)
+var getPrimaryEquation = () => {
+    return "\\dot{\\rho} = (1 + x_1)(1 + x_2)";
+};
 
-//////////////////
-// Achievements
-var achievements = [];
+// Secondary equation (optional)
+var getSecondaryEquation = () => {
+    return "rho = " + rho.value.toString();
+};
+
+// Reset function
+var reset = (hardReset) => {
+    x1.level = 0;
+    x2.level = 0;
+    rho.value = BigNumber.ONE;
+};
+
+// Run init
+init();
