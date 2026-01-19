@@ -1,53 +1,121 @@
-// Imports for Hodge SDK
-import { theory } from "../api/Theory";
-import { BigNumber } from "../api/BigNumber";
-import { LinearCost, ExponentialCost, FreeCost } from "../api/Costs";
-import { Utils } from "../api/Utils";
+import { ExponentialCost, FirstFreeCost, CustomCost } from "./api/Costs";
+import { parseBigNumber, BigNumber } from "./api/BigNumber";
+import { theory } from "./api/Theory";
+import { Utils } from "./api/Utils";
 
-// Basic info
-var id = "hodge_skeleton";
-var name = "Hodge Skeleton";
-var description = "Barebones skeleton for Hodge Conjecture theory.";
+// --- Meta ---
+var id = "barebones_theory";
+var name = "Barebones Theory";
+var description = "A minimal fully working Exponential Idle theory skeleton for testing.";
 var authors = "horchata#0000";
-var version = "0.1.0";
+var version = 1;
+var releaseOrder = "1";
 
-// Currency
-var rho;
+requiresGameVersion("1.4.33");
 
-// Upgrades
+// --- Currency ---
+var rho_dot = BigNumber.ZERO;
+var t_cumulative = BigNumber.ZERO;
+var currency;
+
+// --- Upgrades ---
 var x1, x2;
 
-// Internal state
-var tickMultiplier = BigNumber.ONE;
+// --- Milestones ---
+var milestone1, milestone2;
 
-// Init function
+// --- Permanent Upgrades ---
+var perm1, perm2;
+
+// --- Init function ---
 var init = () => {
-    rho = theory.createCurrency();
+    // Currency
+    currency = theory.createCurrency();
 
-    // Upgrades
-    x1 = theory.createUpgrade(0, rho, new LinearCost(1, 1));
-    x1.getDescription = (_) => "x1 upgrade";
-    x1.getInfo = (amount) => "Level: " + x1.level;
+    // Regular Upgrades
+    x1 = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
+    x1.level = 0;
+    x1.getDescription = (_) => "x₁ upgrade";
+    x1.getInfo = (_) => "Level: " + x1.level;
 
-    x2 = theory.createUpgrade(1, rho, new LinearCost(5, 5));
-    x2.getDescription = (_) => "x2 upgrade";
-    x2.getInfo = (amount) => "Level: " + x2.level;
+    x2 = theory.createUpgrade(1, currency, new FirstFreeCost(new ExponentialCost(50, Math.log2(5))));
+    x2.level = 0;
+    x2.getDescription = (_) => "x₂ upgrade";
+    x2.getInfo = (_) => "Level: " + x2.level;
 
-    theory.createPublicationUpgrade(2, rho, 1e8);
+    // Permanent Upgrades
+    perm1 = theory.createPermanentUpgrade(2, currency, new ExponentialCost(1e3, Math.log2(10)));
+    perm1.level = 0;
+    perm1.maxLevel = 3;
+    perm1.getDescription = (_) => "Unlock milestone 1";
+    perm1.getInfo = (_) => "Unlocks milestone 1";
 
-    // Tick function
-    theory.setTickFunction((elapsedTime, multiplier) => {
-        // Convert everything to BigNumber
-        let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
+    perm2 = theory.createPermanentUpgrade(3, currency, new ExponentialCost(1e5, Math.log2(20)));
+    perm2.level = 0;
+    perm2.maxLevel = 2;
+    perm2.getDescription = (_) => "Unlock milestone 2";
+    perm2.getInfo = (_) => "Unlocks milestone 2";
 
-        let x1val = BigNumber.ONE.add(BigNumber.from(x1.level));
-        let x2val = BigNumber.ONE.add(BigNumber.from(x2.level));
+    // Milestones
+    milestone1 = theory.createMilestoneUpgrade(0, 1);
+    milestone1.getDescription = (_) => "Milestone 1 unlock";
+    milestone1.getInfo = (_) => "First milestone unlocked";
+    milestone1.boughtOrRefunded = (_) => updateAvailability();
 
-        let gain = x1val.mul(x2val).mul(dt).mul(BigNumber.from(theory.publicationMultiplier));
+    milestone2 = theory.createMilestoneUpgrade(1, 1);
+    milestone2.getDescription = (_) => "Milestone 2 unlock";
+    milestone2.getInfo = (_) => "Second milestone unlocked";
+    milestone2.boughtOrRefunded = (_) => updateAvailability();
 
-        rho.value = rho.value.add(gain);
-    });
+    // Milestone cost (custom)
+    theory.setMilestoneCost(new CustomCost((total) => 10 * (total + 1)));
+
+    // Story chapters
+    theory.createStoryChapter(0, "Getting Started", "This is your first theory.", () => currency.value >= 1);
+
+    updateAvailability();
 };
 
-// Call init to start
+// --- Update availability ---
+var updateAvailability = () => {
+    milestone1.isAvailable = perm1.level > 0;
+    milestone2.isAvailable = perm2.level > 0;
+};
+
+// --- Tick function ---
+var tick = (elapsedTime, multiplier) => {
+    let dt = BigNumber.from(elapsedTime * multiplier);
+
+    // Growth formula
+    let x1val = BigNumber.ONE.add(BigNumber.from(x1.level));
+    let x2val = BigNumber.ONE.add(BigNumber.from(x2.level));
+    rho_dot = x1val.mul(x2val).mul(dt);
+
+    currency.value = currency.value.add(rho_dot);
+};
+
+// --- Reset function ---
+var reset = (hardReset) => {
+    x1.level = 0;
+    x2.level = 0;
+    perm1.level = 0;
+    perm2.level = 0;
+    rho_dot = BigNumber.ZERO;
+    t_cumulative = BigNumber.ZERO;
+    currency.value = BigNumber.ONE;
+    updateAvailability();
+};
+
+// --- Internal state functions ---
+var getInternalState = () => `${x1.level} ${x2.level} ${perm1.level} ${perm2.level} ${t_cumulative}`;
+var setInternalState = (state) => {
+    let values = state.split(" ");
+    if (values.length > 0) x1.level = parseInt(values[0]);
+    if (values.length > 1) x2.level = parseInt(values[1]);
+    if (values.length > 2) perm1.level = parseInt(values[2]);
+    if (values.length > 3) perm2.level = parseInt(values[3]);
+    if (values.length > 4) t_cumulative = parseBigNumber(values[4]);
+};
+
+// Run init
 init();
