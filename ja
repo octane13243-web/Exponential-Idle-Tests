@@ -3,9 +3,9 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "simple_two_upgrades";
-var name = "Simple Two Upgrades";
-var description = "Barebones EI theory with 2 upgrades, tick, and primary equation.";
+var id = "bignumber_safe_two_upgrades";
+var name = "BigNumber Safe Two Upgrades";
+var description = "Barebones EI theory with 2 upgrades, tick, primary equation, and graph (BigNumber-safe).";
 var authors = "You#0000";
 var version = 1;
 
@@ -46,6 +46,7 @@ var init = () => {
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
 
+    // Compute BigNumbers safely
     let x1val = BigNumber.TWO.pow(BigNumber.from(x1.level));
     let x2val = BigNumber.TWO.pow(BigNumber.from(x2.level));
 
