@@ -3,9 +3,9 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 
 // --- Meta ---
-var id = "safe_barebones";
-var name = "Safe Barebones";
-var description = "A fully safe EI skeleton, ready to expand.";
+var id = "number_safe_skeleton";
+var name = "Number Safe Skeleton";
+var description = "Works in SDK versions where mul/add don’t exist.";
 var authors = "horchata#0000";
 var version = 1;
 
@@ -13,51 +13,41 @@ requiresGameVersion("1.4.33");
 
 // --- Currency & State ---
 var currency;
-var rho_dot = BigNumber.ZERO;
+var rho_dot = 0; // use JS number instead of BigNumber
+var x1_level = 0;
 
-// --- Upgrade ---
-var x1;
-
-// --- Init Function ---
+// --- Init ---
 var init = () => {
-    // create currency
     currency = theory.createCurrency();
-    currency.value = BigNumber.ONE; // initial value
-
-    // simple upgrade
-    x1 = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
-    x1.level = 0;
-    x1.getDescription = (_) => "x₁ upgrade";
-    x1.getInfo = (_) => "Level: " + x1.level;
+    currency.value = BigNumber.ONE;
 };
 
-// --- Tick Function ---
+// --- Tick ---
 var tick = (elapsedTime, multiplier) => {
-    // convert everything to BigNumber safely
-    let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
-    let x1val = BigNumber.ONE.add(BigNumber.from(x1.level));
+    // calculate rho_dot as plain number
+    rho_dot = (1 + x1_level) * elapsedTime * multiplier;
 
-    // calculate rho_dot safely
-    rho_dot = x1val.mul(dt);
-
-    // update currency manually (works in all SDK versions)
-    let newVal = BigNumber.from(currency.value.toNumber() + rho_dot.toNumber());
-    currency.value = newVal;
+    // increment currency safely
+    currency.value = BigNumber.from(currency.value.toNumber() + rho_dot);
 };
 
-// --- Reset Function ---
+// --- Upgrade Function ---
+var buyX1 = () => {
+    x1_level += 1; // simple upgrade
+};
+
+// --- Reset ---
 var reset = (hardReset) => {
-    x1.level = 0;
-    rho_dot = BigNumber.ZERO;
+    x1_level = 0;
+    rho_dot = 0;
     currency.value = BigNumber.ONE;
 };
 
 // --- Internal State ---
-var getInternalState = () => `${x1.level}`;
+var getInternalState = () => `${x1_level}`;
 var setInternalState = (state) => {
     let values = state.split(" ");
-    if (values.length > 0) x1.level = parseInt(values[0]);
+    if (values.length > 0) x1_level = parseInt(values[0]);
 };
 
-// --- Init ---
 init();
