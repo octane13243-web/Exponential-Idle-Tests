@@ -3,9 +3,9 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "locked_two_upgrades";
-var name = "Locked Two Upgrades";
-var description = "Barebones EI theory: 2 upgrades, BigNumber-safe tick, primary equation, graph.";
+var id = "locked_two_upgrades_full";
+var name = "Locked Two Upgrades Full";
+var description = "Safe EI skeleton: 2 upgrades, tick, equation, graph, permanent upgrades.";
 var authors = "You#0000";
 var version = 1;
 
@@ -38,21 +38,24 @@ var init = () => {
         BigNumber.TWO.pow(BigNumber.from(x2.level)).toString(0),
         BigNumber.TWO.pow(BigNumber.from(x2.level + amount)).toString(0)
     );
+
+    //--------------------
+    // Permanent upgrades
+    //--------------------
+    theory.createPublicationUpgrade(0, currency, 1e6);
+    theory.createBuyAllUpgrade(1, currency, 1e12);
+    theory.createAutoBuyerUpgrade(2, currency, 1e18);
 };
 
 //--------------------
-// Tick function
+// Tick function (BigNumber-safe)
 //--------------------
 var tick = (elapsedTime, multiplier) => {
-    // Convert dt to BigNumber
-    let dt = BigNumber.from(elapsedTime * multiplier);
-
-    // Force x1val and x2val to be BigNumbers
-    let x1val = BigNumber.from(BigNumber.TWO).pow(BigNumber.from(x1.level));
-    let x2val = BigNumber.from(BigNumber.TWO).pow(BigNumber.from(x2.level));
-
-    // Multiply safely and add to currency
-    currency.value = currency.value.add(x1val.mul(x2val).mul(dt));
+    let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
+    let x1val = BigNumber.TWO.pow(BigNumber.from(x1.level));
+    let x2val = BigNumber.TWO.pow(BigNumber.from(x2.level));
+    let gain = x1val.mul(x2val).mul(dt);
+    currency.value = currency.value.add(gain);
 };
 
 //--------------------
@@ -65,10 +68,10 @@ var getPrimaryEquation = () => {
 };
 
 //--------------------
-// Graph
+// Graph value
 //--------------------
 var get2DGraphValue = () => {
-    return currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
+    return currency.value.sign * (BigNumber.ONE.add(currency.value.abs())).log10().toNumber();
 };
 
 //--------------------
