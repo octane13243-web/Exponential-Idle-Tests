@@ -1,31 +1,22 @@
-import { ExponentialCost, FirstFreeCost } from "./api/Costs";
-import { parseBigNumber, BigNumber } from "./api/BigNumber";
+import { ExponentialCost } from "./api/Costs";
+import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
-import { Utils } from "./api/Utils";
 
 // --- Meta ---
-var id = "barebones_big";
-var name = "Barebones BigNumber Theory";
-var description = "Minimal working skeleton with BigNumber-safe math.";
+var id = "simple_start";
+var name = "Simple Start";
+var description = "Barebones BigNumber-safe theory.";
 var authors = "horchata#0000";
 var version = 1;
-var releaseOrder = "1";
 
 requiresGameVersion("1.4.33");
 
 // --- Currency & State ---
 var currency;
 var rho_dot = BigNumber.ZERO;
-var t_cumulative = BigNumber.ZERO;
 
 // --- Upgrades ---
-var x1, x2;
-
-// --- Milestones ---
-var milestone1, milestone2;
-
-// --- Permanent Upgrades ---
-var perm1, perm2;
+var x1;
 
 // --- Init Function ---
 var init = () => {
@@ -36,87 +27,31 @@ var init = () => {
     x1.level = 0;
     x1.getDescription = (_) => "x₁ upgrade";
     x1.getInfo = (_) => "Level: " + x1.level;
-
-    // x2 upgrade
-    x2 = theory.createUpgrade(1, currency, new FirstFreeCost(new ExponentialCost(50, Math.log2(5))));
-    x2.level = 0;
-    x2.getDescription = (_) => "x₂ upgrade";
-    x2.getInfo = (_) => "Level: " + x2.level;
-
-    // Permanent Upgrades
-    perm1 = theory.createPermanentUpgrade(2, currency, new ExponentialCost(1e3, Math.log2(10)));
-    perm1.level = 0;
-    perm1.maxLevel = 3;
-    perm1.getDescription = (_) => "Unlock milestone 1";
-    perm1.getInfo = (_) => "Unlocks milestone 1";
-
-    perm2 = theory.createPermanentUpgrade(3, currency, new ExponentialCost(1e5, Math.log2(20)));
-    perm2.level = 0;
-    perm2.maxLevel = 2;
-    perm2.getDescription = (_) => "Unlock milestone 2";
-    perm2.getInfo = (_) => "Unlocks milestone 2";
-
-    // Milestones
-    milestone1 = theory.createMilestoneUpgrade(0, 1);
-    milestone1.getDescription = (_) => "Milestone 1 unlock";
-    milestone1.getInfo = (_) => "First milestone unlocked";
-    milestone1.boughtOrRefunded = (_) => updateAvailability();
-
-    milestone2 = theory.createMilestoneUpgrade(1, 1);
-    milestone2.getDescription = (_) => "Milestone 2 unlock";
-    milestone2.getInfo = (_) => "Second milestone unlocked";
-    milestone2.boughtOrRefunded = (_) => updateAvailability();
-
-    theory.setMilestoneCost(new ExponentialCost(10, Math.log2(2))); // simple milestone cost
-
-    // Story chapter
-    theory.createStoryChapter(0, "Getting Started", "This is your first theory.", () => currency.value.gte(BigNumber.ONE));
-
-    updateAvailability();
-};
-
-// --- Update Availability ---
-var updateAvailability = () => {
-    milestone1.isAvailable = perm1.level.gt(BigNumber.ZERO);
-    milestone2.isAvailable = perm2.level.gt(BigNumber.ZERO);
 };
 
 // --- Tick Function ---
 var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
+    let dt = BigNumber.from(elapsedTime * multiplier);
 
-    // BigNumber-safe upgrades
+    // BigNumber-safe upgrade calculation
     let x1val = BigNumber.ONE.add(BigNumber.from(x1.level));
-    let x2val = BigNumber.ONE.add(BigNumber.from(x2.level));
 
-    // Growth calculation
-    rho_dot = x1val.mul(x2val).mul(dt);
-
-    // Add to currency safely
-    currency.value = currency.value.add(rho_dot);
+    rho_dot = x1val.mul(dt);           // growth
+    currency.value = currency.value.add(rho_dot); // add to currency
 };
 
 // --- Reset Function ---
 var reset = (hardReset) => {
     x1.level = 0;
-    x2.level = 0;
-    perm1.level = 0;
-    perm2.level = 0;
     rho_dot = BigNumber.ZERO;
-    t_cumulative = BigNumber.ZERO;
     currency.value = BigNumber.ONE;
-    updateAvailability();
 };
 
 // --- Internal State ---
-var getInternalState = () => `${x1.level} ${x2.level} ${perm1.level} ${perm2.level} ${t_cumulative.toString()}`;
+var getInternalState = () => `${x1.level}`;
 var setInternalState = (state) => {
     let values = state.split(" ");
     if (values.length > 0) x1.level = parseInt(values[0]);
-    if (values.length > 1) x2.level = parseInt(values[1]);
-    if (values.length > 2) perm1.level = parseInt(values[2]);
-    if (values.length > 3) perm2.level = parseInt(values[3]);
-    if (values.length > 4) t_cumulative = parseBigNumber(values[4]);
 };
 
 // --- Run Init ---
