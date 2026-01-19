@@ -3,9 +3,9 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "bignumber_safe_two_upgrades";
-var name = "BigNumber Safe Two Upgrades";
-var description = "Barebones EI theory with 2 upgrades, tick, primary equation, and graph (BigNumber-safe).";
+var id = "locked_two_upgrades";
+var name = "Locked Two Upgrades";
+var description = "Barebones EI theory: 2 upgrades, BigNumber-safe tick, primary equation, graph.";
 var authors = "You#0000";
 var version = 1;
 
@@ -44,12 +44,14 @@ var init = () => {
 // Tick function
 //--------------------
 var tick = (elapsedTime, multiplier) => {
+    // Convert dt to BigNumber
     let dt = BigNumber.from(elapsedTime * multiplier);
 
-    // Compute BigNumbers safely
-    let x1val = BigNumber.TWO.pow(BigNumber.from(x1.level));
-    let x2val = BigNumber.TWO.pow(BigNumber.from(x2.level));
+    // Force x1val and x2val to be BigNumbers
+    let x1val = BigNumber.from(BigNumber.TWO).pow(BigNumber.from(x1.level));
+    let x2val = BigNumber.from(BigNumber.TWO).pow(BigNumber.from(x2.level));
 
+    // Multiply safely and add to currency
     currency.value = currency.value.add(x1val.mul(x2val).mul(dt));
 };
 
@@ -65,7 +67,9 @@ var getPrimaryEquation = () => {
 //--------------------
 // Graph
 //--------------------
-var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
+var get2DGraphValue = () => {
+    return currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
+};
 
 //--------------------
 init();
