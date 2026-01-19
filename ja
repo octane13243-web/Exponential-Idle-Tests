@@ -1,10 +1,10 @@
 import { theory } from "./api/Theory";
-import { BigNumber, parseBigNumber } from "./api/BigNumber";
+import { BigNumber } from "./api/BigNumber";
 import { ExponentialCost, FirstFreeCost } from "./api/Costs";
 
-var id = "complex_base_fixed";
-var name = "Complex Base Fixed";
-var description = "Skeleton with x1/x2, no .mul errors, tick works properly.";
+var id = "locked_mul_test";
+var name = "Locked Mul Test";
+var description = "Skeleton with x1/x2 upgrades, tick works, no .mul errors";
 var authors = "You";
 var version = 1;
 var releaseOrder = "1";
@@ -14,32 +14,38 @@ requiresGameVersion("1.4.33");
 var currency;
 var x1Upg, x2Upg;
 var rho_dot = BigNumber.ZERO;
-
 var mainEquationPressed = false;
 
 ////////////////////
 // INIT FUNCTION
 var init = () => {
-  currency = theory.createCurrency();
+    currency = theory.createCurrency();
 
-  // x1 Upgrade
-  x1Upg = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(BigNumber.ONE, Math.log2(2))));
-  x1Upg.getDescription = (_) => "x_1 = 2^{" + x1Upg.level + "}";
-  x1Upg.getInfo = (amount) => "x_1 = 2^{" + (x1Upg.level + amount) + "}";
+    // x1 Upgrade
+    x1Upg = theory.createUpgrade(
+        0,
+        currency,
+        new FirstFreeCost(new ExponentialCost(BigNumber.ONE, BigNumber.from(Math.log2(2))))
+    );
+    x1Upg.getDescription = (_) => "x_1 = 2^{" + x1Upg.level + "}";
+    x1Upg.getInfo = (amount) => "x_1 = 2^{" + (x1Upg.level + amount) + "}";
 
-  // x2 Upgrade
-  x2Upg = theory.createUpgrade(1, currency, new FirstFreeCost(new ExponentialCost(BigNumber.ONE, Math.log2(2))));
-  x2Upg.getDescription = (_) => "x_2 = 2^{" + x2Upg.level + "}";
-  x2Upg.getInfo = (amount) => "x_2 = 2^{" + (x2Upg.level + amount) + "}";
+    // x2 Upgrade
+    x2Upg = theory.createUpgrade(
+        1,
+        currency,
+        new FirstFreeCost(new ExponentialCost(BigNumber.ONE, BigNumber.from(Math.log2(2))))
+    );
+    x2Upg.getDescription = (_) => "x_2 = 2^{" + x2Upg.level + "}";
+    x2Upg.getInfo = (amount) => "x_2 = 2^{" + (x2Upg.level + amount) + "}";
 
-  ////////////////////
-  // Permanent Upgrades
-  theory.createPublicationUpgrade(0, currency, BigNumber.from(1e6));
-  theory.createBuyAllUpgrade(1, currency, BigNumber.from(1e12));
-  theory.createAutoBuyerUpgrade(2, currency, BigNumber.from(1e18));
+    ////////////////////
+    // Permanent Upgrades
+    theory.createPublicationUpgrade(0, currency, BigNumber.from(1e6));
+    theory.createBuyAllUpgrade(1, currency, BigNumber.from(1e12));
+    theory.createAutoBuyerUpgrade(2, currency, BigNumber.from(1e18));
 
-  ////////////////////
-  updateAvailability();
+    updateAvailability();
 };
 
 ////////////////////
@@ -49,24 +55,23 @@ var updateAvailability = () => {};
 ////////////////////
 // TICK FUNCTION
 var tick = (elapsedTime, multiplier) => {
-  // EVERYTHING converted to BigNumber
-  let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
-  
-  let x1val = BigNumber.TWO.pow(BigNumber.from(x1Upg.level));
-  let x2val = BigNumber.TWO.pow(BigNumber.from(x2Upg.level));
+    // wrap everything in BigNumber
+    let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
+    let x1val = BigNumber.TWO.pow(BigNumber.from(x1Upg.level));
+    let x2val = BigNumber.TWO.pow(BigNumber.from(x2Upg.level));
 
-  rho_dot = x1val.mul(x2val).mul(dt);
-  currency.value = currency.value.add(rho_dot);
+    rho_dot = x1val.mul(x2val).mul(dt);
+    currency.value = currency.value.add(rho_dot);
 
-  if(mainEquationPressed) theory.invalidatePrimaryEquation();
+    if(mainEquationPressed) theory.invalidatePrimaryEquation();
 };
 
 ////////////////////
 // PRIMARY EQUATION
 var getPrimaryEquation = () => {
-  theory.primaryEquationHeight = 50;
-  theory.primaryEquationScale = 1.0;
-  return "\\dot{\\rho} = x_1 \\cdot x_2";
+    theory.primaryEquationHeight = 50;
+    theory.primaryEquationScale = 1.0;
+    return "\\dot{\\rho} = x_1 \\cdot x_2";
 };
 
 ////////////////////
