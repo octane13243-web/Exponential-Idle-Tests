@@ -18,46 +18,55 @@ var currency;
 var rho_dot = 0; // current growth
 var x1_level = 0; // Derivative Boost
 var x2_level = 0; // Contour Expansion
+var milestoneUnlocked = false;
 
 // --- Init ---
 var init = () => {
     currency = theory.createCurrency();
     currency.value = BigNumber.ONE;
 
-    // Create simple upgrades
+    // Create upgrades
     createUpgrades();
+
+    // Create milestone
+    createMilestone();
 };
 
 var createUpgrades = () => {
-    // Derivative Boost (x1)
-    derivativeUpgrade = theory.createUpgrade(
+    // x1
+    x1 = theory.createUpgrade(
         0, currency, new ExponentialCost(10, Math.log2(2))
     );
-    derivativeUpgrade.getDescription = (_) => "Derivative order: " + x1_level;
-    derivativeUpgrade.getInfo = (_) => "Derivative order: " + x1_level;
+    x1.getDescription = (_) => "x_1";
+    x1.getInfo = (_) => "x_1";
+    x1.bought = (_) => { x1_level += 1; };
 
-    derivativeUpgrade.bought = (_) => {
-        x1_level += 1;
-    };
-
-    // Contour Expansion (x2)
-    contourUpgrade = theory.createUpgrade(
+    // x2
+    x2 = theory.createUpgrade(
         1, currency, new ExponentialCost(50, Math.log2(3))
     );
-    contourUpgrade.getDescription = (_) => "Contour radius: " + (1 + x2_level);
-    contourUpgrade.getInfo = (_) => "Contour radius: " + (1 + x2_level);
+    x2.getDescription = (_) => "x_2";
+    x2.getInfo = (_) => "x_2";
+    x2.bought = (_) => { x2_level += 1; };
+};
 
-    contourUpgrade.bought = (_) => {
-        x2_level += 1;
+// --- Milestone ---
+var createMilestone = () => {
+    milestone = theory.createMilestoneUpgrade(0, 1);
+    milestone.getDescription = (_) => "Cauchy's Theorem Unlock";
+    milestone.getInfo = (_) => "Enables advanced contour growth";
+    milestone.boughtOrRefunded = (_) => {
+        milestoneUnlocked = milestone.level > 0;
     };
 };
 
 // --- Tick Function ---
 var tick = (elapsedTime, multiplier) => {
-    // safe JS numbers for calculations
-    rho_dot = (1 + x1_level) * (1 + x2_level) * elapsedTime * multiplier;
+    let baseGrowth = (1 + x1_level) * (1 + x2_level);
+    if(milestoneUnlocked) baseGrowth *= 2; // milestone doubles growth
 
-    // increment currency
+    rho_dot = baseGrowth * elapsedTime * multiplier;
+
     currency.value = BigNumber.from(currency.value.toNumber() + rho_dot);
 };
 
@@ -66,15 +75,25 @@ var reset = (hardReset) => {
     x1_level = 0;
     x2_level = 0;
     rho_dot = 0;
+    milestoneUnlocked = false;
     currency.value = BigNumber.ONE;
 };
 
 // --- Internal State ---
-var getInternalState = () => `${x1_level} ${x2_level}`;
+var getInternalState = () => `${x1_level} ${x2_level} ${milestone.level}`;
 var setInternalState = (state) => {
     let values = state.split(" ");
     if (values.length > 0) x1_level = parseInt(values[0]);
     if (values.length > 1) x2_level = parseInt(values[1]);
+    if (values.length > 2) milestone.level = parseInt(values[2]);
 };
 
 init();
+
+// --- Primary Equation ---
+theory.primaryEquationHeight = 40;
+theory.getPrimaryEquation = () => {
+    let result = "\\dot{\\rho} = |f^{(" + x1_level + ")}(z)| \\cdot ";
+    result += "(1 + x_2" + (milestoneUnlocked ? ") \\cdot 2" : ")");
+    return result;
+};
