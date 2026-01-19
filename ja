@@ -1,40 +1,116 @@
-// === BigNumber-safe skeleton tick function ===
+import { ExponentialCost, FirstFreeCost } from "./api/Costs";
+import { BigNumber, parseBigNumber } from "./api/BigNumber";
+import { theory } from "./api/Theory";
+import { Utils } from "./api/Utils";
+
+var id = "complex_base";
+var name = "Complex Base Equation";
+var description = "A theory inspired by complex analysis, using series, products, and integrals in a BigNumber-safe way.";
+var authors = "Horchata";
+var version = 1;
+var releaseOrder = "1";
+
+requiresGameVersion("1.4.33");
+
+var currency, rho_dot;
+var mainEquationPressed = false;
+
+// ===== Upgrades =====
+var x1, x2, x3, x4, x5;
+
+// === Init function ===
+var init = () => {
+  currency = theory.createCurrency();
+
+  // x1: 2^n style upgrade
+  x1 = theory.createUpgrade(0, currency, new ExponentialCost(1, Math.log2(2)));
+  x1.getDescription = (level) => "x_1 = 2^{" + level + "}";
+  x1.getInfo = (level) => "x_1 = 2^{" + level + "}";
+  x1.maxLevel = 10;
+
+  // x2
+  x2 = theory.createUpgrade(1, currency, new ExponentialCost(2, Math.log2(2)));
+  x2.getDescription = (level) => "x_2 = 2^{" + level + "}";
+  x2.getInfo = (level) => "x_2 = 2^{" + level + "}";
+  x2.maxLevel = 10;
+
+  // x3
+  x3 = theory.createUpgrade(2, currency, new ExponentialCost(1, Math.log2(2)));
+  x3.getDescription = (level) => "x_3 = 2^{" + level + "}";
+  x3.getInfo = (level) => "x_3 = 2^{" + level + "}";
+  x3.maxLevel = 10;
+
+  // x4
+  x4 = theory.createUpgrade(3, currency, new ExponentialCost(1, Math.log2(2)));
+  x4.getDescription = (level) => "x_4 = 2^{" + level + "}";
+  x4.getInfo = (level) => "x_4 = 2^{" + level + "}";
+  x4.maxLevel = 10;
+
+  // x5
+  x5 = theory.createUpgrade(4, currency, new ExponentialCost(1, Math.log2(2)));
+  x5.getDescription = (level) => "x_5 = 2^{" + level + "}";
+  x5.getInfo = (level) => "x_5 = 2^{" + level + "}";
+  x5.maxLevel = 10;
+
+  updateAvailability();
+};
+
+// === Update availability ===
+var updateAvailability = () => {
+  x1.isAvailable = true;
+  x2.isAvailable = true;
+  x3.isAvailable = true;
+  x4.isAvailable = true;
+  x5.isAvailable = true;
+};
+
+// === Tick function ===
 var tick = (elapsedTime, multiplier) => {
-  let dt = BigNumber.from(elapsedTime * multiplier); // time step
-  let bonus = theory.publicationMultiplier; // pub multiplier
+  let dt = BigNumber.from(elapsedTime * multiplier);
+  let bonus = theory.publicationMultiplier;
 
-  // Base upgrade values
-  let v1 = x1.level > 0 ? BigNumber.from(1 + 0.2 * x1.level) : BigNumber.ONE; // holomorphic factor
-  let v2 = x2.level > 0 ? BigNumber.from(1 + 0.1 * x2.level) : BigNumber.ONE; // complex exp factor
+  let v1 = BigNumber.from(1).add(BigNumber.from(0.2).mul(x1.level));
+  let v2 = BigNumber.from(1).add(BigNumber.from(0.2).mul(x2.level));
+  let v3 = BigNumber.from(1).add(BigNumber.from(0.1).mul(x3.level));
+  let v4 = BigNumber.from(1).add(BigNumber.from(0.05).mul(x4.level));
+  let v5 = BigNumber.from(1).add(BigNumber.from(0.03).mul(x5.level));
 
-  // q = main variable / currency for calculation
+  // Approximations
   let qSafe = currency.value.gt(BigNumber.ZERO) ? currency.value : BigNumber.ONE;
-
-  // ===== Approximations =====
-  // sin(q) ≈ q - q^3/6 + q^5/120
   let sinApprox = qSafe.sub(qSafe.pow(3).div(BigNumber.from(6))).add(qSafe.pow(5).div(BigNumber.from(120)));
-
-  // ln(1 + q) ≈ log10(1 + q) * ln(10)
   let lnApprox = qSafe.add(BigNumber.ONE).log10().mul(BigNumber.from(Math.LN10));
 
-  // Product factor placeholder (x3)
-  let prodFactor = x3.level > 0 ? BigNumber.from(1 + 0.05 * x3.level) : BigNumber.ONE;
+  rho_dot = v1.mul(v2).mul(sinApprox.add(lnApprox)).mul(v3).mul(v4).mul(v5);
 
-  // Series sum factor placeholder (x5)
-  let seriesFactor = x5.level > 0 ? BigNumber.from(1 + 0.03 * x5.level) : BigNumber.ONE;
-
-  // Integral factor placeholder (x4)
-  let integralFactor = x4.level > 0 ? BigNumber.from(1 + 0.02 * x4.level) : BigNumber.ONE;
-
-  // ===== Main rho_dot calculation =====
-  rho_dot = v1.mul(v2).mul(sinApprox.add(lnApprox))
-               .mul(prodFactor)
-               .mul(seriesFactor)
-               .mul(integralFactor);
-
-  // Update currency
   currency.value = currency.value.add(rho_dot.mul(dt).mul(bonus));
 
-  // Invalidate equation display if needed
   if(mainEquationPressed) theory.invalidatePrimaryEquation();
 };
+
+// === Primary Equation ===
+var getPrimaryEquation = () => {
+  theory.primaryEquationHeight = 80;
+  theory.primaryEquationScale = 1.0;
+
+  let eq = "\\dot{\\rho} = (x_1 + 1)(x_2 + 1)(\\sin(q) + \\ln(1+q))";
+  eq += "(x_3 + 1)(x_4 + 1)(x_5 + 1)";
+
+  return eq;
+};
+
+// === 2D Graph ===
+var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
+
+// === Overlay to capture touches ===
+var getEquationOverlay = () => {
+  return ui.createStackLayout({
+    horizontalOptions: LayoutOptions.FILL,
+    verticalOptions: LayoutOptions.FILL,
+    onTouched: (event) => {
+      mainEquationPressed = event.type == TouchType.PRESSED;
+      theory.invalidatePrimaryEquation();
+    },
+  });
+};
+
+init();
