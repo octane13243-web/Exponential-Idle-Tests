@@ -1,89 +1,40 @@
-import { ExponentialCost, FirstFreeCost } from "./api/Costs";
-import { BigNumber, parseBigNumber } from "./api/BigNumber";
-import { theory } from "./api/Theory";
-import { Utils } from "./api/Utils";
-
-var id = "complex_ana_theory";
-var name = "Complex Analysis Growth";
-var description = "A theory exploring complex functions and their crazy behaviors.";
-var authors = "Horchata#0001";
-var version = 1;
-var releaseOrder = "1";
-
-requiresGameVersion("1.4.33");
-
-var rho_dot = BigNumber.ZERO;
-var q = BigNumber.ZERO;
-var x1, x2, x3, x4, x5;
-
-// === Init function ===
-var init = () => {
-    var currency = theory.createCurrency();
-
-    // --- x1: Base holomorphic factor ---
-    x1 = theory.createUpgrade(0, currency, new ExponentialCost(1e2, Math.log2(10)));
-    x1.getDescription = (_) => Utils.getMath("x_1");
-    x1.getInfo = (_) => Utils.getMath("x_1");
-
-    // --- x2: Complex exponential factor ---
-    x2 = theory.createUpgrade(1, currency, new ExponentialCost(1e3, Math.log2(15)));
-    x2.getDescription = (_) => Utils.getMath("x_2");
-    x2.getInfo = (_) => Utils.getMath("x_2");
-
-    // --- x3: Product factor (milestone unlock later) ---
-    x3 = theory.createUpgrade(2, currency, new FirstFreeCost(new ExponentialCost(1e5, Math.log2(20))));
-    x3.getDescription = (_) => Utils.getMath("x_3");
-    x3.getInfo = (_) => Utils.getMath("x_3");
-
-    // --- x4: Integral factor (milestone unlock later) ---
-    x4 = theory.createUpgrade(3, currency, new ExponentialCost(1e7, Math.log2(25)));
-    x4.getDescription = (_) => Utils.getMath("x_4");
-    x4.getInfo = (_) => Utils.getMath("x_4");
-
-    // --- x5: Series sum factor (milestone unlock later) ---
-    x5 = theory.createUpgrade(4, currency, new ExponentialCost(1e9, Math.log2(30)));
-    x5.getDescription = (_) => Utils.getMath("x_5");
-    x5.getInfo = (_) => Utils.getMath("x_5");
-
-    // --- Story Chapter ---
-    theory.createStoryChapter(0, "Complex Beginnings", "You explore the wonders of complex functions...", () => currency.value >= 1);
-};
-
-// === Tick function ===
+// === BigNumber-safe skeleton tick function ===
 var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime * multiplier);
-    let v1 = BigNumber.from(1 + x1.level * 0.1);
-    let v2 = BigNumber.from(1 + x2.level * 0.05);
-    let prodFactor = x3.level > 0 ? BigNumber.from(1 + x3.level * 0.02) : BigNumber.ONE;
-    let seriesFactor = x5.level > 0 ? BigNumber.from(1 + x5.level * 0.01) : BigNumber.ONE;
-    let integralFactor = x4.level > 0 ? BigNumber.from(1 + x4.level * 0.03) : BigNumber.ONE;
+  let dt = BigNumber.from(elapsedTime * multiplier); // time step
+  let bonus = theory.publicationMultiplier; // pub multiplier
 
-    // base complex-analysis-inspired equation
-    rho_dot = v1.mul((v2.mul(q).sin().add(q.add(BigNumber.ONE).ln())).abs())
-            .mul(prodFactor)
-            .mul(seriesFactor)
-            .mul(integralFactor);
+  // Base upgrade values
+  let v1 = x1.level > 0 ? BigNumber.from(1 + 0.2 * x1.level) : BigNumber.ONE; // holomorphic factor
+  let v2 = x2.level > 0 ? BigNumber.from(1 + 0.1 * x2.level) : BigNumber.ONE; // complex exp factor
 
-    q += rho_dot.mul(dt);
+  // q = main variable / currency for calculation
+  let qSafe = currency.value.gt(BigNumber.ZERO) ? currency.value : BigNumber.ONE;
 
-    theory.primaryEquationHeight = 50;
-    theory.primaryEquationScale = 1.0;
+  // ===== Approximations =====
+  // sin(q) ≈ q - q^3/6 + q^5/120
+  let sinApprox = qSafe.sub(qSafe.pow(3).div(BigNumber.from(6))).add(qSafe.pow(5).div(BigNumber.from(120)));
+
+  // ln(1 + q) ≈ log10(1 + q) * ln(10)
+  let lnApprox = qSafe.add(BigNumber.ONE).log10().mul(BigNumber.from(Math.LN10));
+
+  // Product factor placeholder (x3)
+  let prodFactor = x3.level > 0 ? BigNumber.from(1 + 0.05 * x3.level) : BigNumber.ONE;
+
+  // Series sum factor placeholder (x5)
+  let seriesFactor = x5.level > 0 ? BigNumber.from(1 + 0.03 * x5.level) : BigNumber.ONE;
+
+  // Integral factor placeholder (x4)
+  let integralFactor = x4.level > 0 ? BigNumber.from(1 + 0.02 * x4.level) : BigNumber.ONE;
+
+  // ===== Main rho_dot calculation =====
+  rho_dot = v1.mul(v2).mul(sinApprox.add(lnApprox))
+               .mul(prodFactor)
+               .mul(seriesFactor)
+               .mul(integralFactor);
+
+  // Update currency
+  currency.value = currency.value.add(rho_dot.mul(dt).mul(bonus));
+
+  // Invalidate equation display if needed
+  if(mainEquationPressed) theory.invalidatePrimaryEquation();
 };
-
-// === Primary Equation Display ===
-var getPrimaryEquation = () => {
-    return "\\dot{\\rho} = x_1 \\cdot |\\sin(x_2 q) + \\ln(1+q)|";
-};
-
-// === Internal State Save/Load ===
-var getInternalState = () => q.toString();
-var setInternalState = (state) => { q = parseBigNumber(state); };
-
-// === Publication & Graph Functions ===
-var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.5);
-var getPublicationMultiplierFormula = (symbol) => symbol + "^{0.5}";
-var getTau = () => q.pow(0.1);
-var getCurrencyFromTau = (tau) => [tau.max(BigNumber.ONE).pow(10), currency.symbol];
-var get2DGraphValue = () => q.sign * (BigNumber.ONE + q.abs()).log10().toNumber();
-
-init();
