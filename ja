@@ -1,21 +1,19 @@
-var id = "basic_theory";
-var name = "Basic Theory";
-var description = "Just a basic working theory template.";
-
-var authors = "horchata#0000";
+var id = "barebones";
+var name = "Barebones Theory";
+var description = "A minimal skeleton theory to get you started.";
+var authors = "horchata";
 var version = "1.0.0";
-var publicationExponent = 0.5;
 
-var rho; // currency
+var rho;        // Currency
+var x1, x2;     // Upgrades
 
-// Upgrades
-var x1, x2;
-
+//////////////////
+// Init function
 var init = () => {
-    // Currency
+    // Create main currency
     rho = theory.createCurrency();
 
-    // Upgrades
+    // Create simple upgrades
     x1 = theory.createUpgrade(0, rho, new ExponentialCost(10, Math.log2(2)));
     x1.getDescription = (_) => "x₁ = " + x1.level;
     x1.getInfo = (_) => "x₁ = " + x1.level;
@@ -23,21 +21,19 @@ var init = () => {
     x2 = theory.createUpgrade(1, rho, new ExponentialCost(100, Math.log2(5)));
     x2.getDescription = (_) => "x₂ = " + x2.level;
     x2.getInfo = (_) => "x₂ = " + x2.level;
-
-    // Primary equation
-    theory.primaryEquation = () => `ρ = ${x1.level + 1} × ${x2.level + 1}`;
 };
 
-// Tick function (simulation step)
+//////////////////
+// Tick function (calculates rho income)
 var tick = (elapsedTime, multiplier) => {
     let dt = elapsedTime * multiplier;
-    let gain = (x1.level + 1) * (x2.level + 1) * dt;
-    rho.value = rho.value + gain;
+    rho.value = rho.value + (x1.level + 1) * (x2.level + 1) * dt;
 };
 
-// Reset function
-var reset = (hardReset) => {
-    x1.level = 0;
-    x2.level = 0;
-    rho.value = 0;
-};
+//////////////////
+// Publication multiplier
+var getPublicationMultiplier = (tau) => tau.pow(0.5);
+
+//////////////////
+// Achievements
+var achievements = [];
