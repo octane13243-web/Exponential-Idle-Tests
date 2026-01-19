@@ -3,9 +3,9 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 
 // --- Meta ---
-var id = "simple_start";
-var name = "Simple Start";
-var description = "Barebones BigNumber-safe theory.";
+var id = "simple_locked";
+var name = "Simple Locked";
+var description = "Barebones skeleton that works.";
 var authors = "horchata#0000";
 var version = 1;
 
@@ -15,14 +15,16 @@ requiresGameVersion("1.4.33");
 var currency;
 var rho_dot = BigNumber.ZERO;
 
-// --- Upgrades ---
+// --- Upgrade ---
 var x1;
 
 // --- Init Function ---
 var init = () => {
+    // create currency
     currency = theory.createCurrency();
+    currency.value = BigNumber.ONE; // MUST be BigNumber
 
-    // x1 upgrade
+    // simple upgrade
     x1 = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
     x1.level = 0;
     x1.getDescription = (_) => "x₁ upgrade";
@@ -33,11 +35,12 @@ var init = () => {
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
 
-    // BigNumber-safe upgrade calculation
+    // BigNumber-safe calculation
     let x1val = BigNumber.ONE.add(BigNumber.from(x1.level));
+    rho_dot = x1val.mul(dt);
 
-    rho_dot = x1val.mul(dt);           // growth
-    currency.value = currency.value.add(rho_dot); // add to currency
+    // add to currency safely
+    currency.value = currency.value.add(rho_dot);
 };
 
 // --- Reset Function ---
@@ -54,5 +57,5 @@ var setInternalState = (state) => {
     if (values.length > 0) x1.level = parseInt(values[0]);
 };
 
-// --- Run Init ---
+// --- Init ---
 init();
