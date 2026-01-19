@@ -1,11 +1,10 @@
 import { theory } from "./api/Theory";
 import { BigNumber, parseBigNumber } from "./api/BigNumber";
-import { ExponentialCost, FirstFreeCost, CompositeCost } from "./api/Costs";
-import { Utils } from "./api/Utils";
+import { ExponentialCost, FirstFreeCost } from "./api/Costs";
 
-var id = "complex_base";
-var name = "Complex Base Theory";
-var description = "A simple skeleton with x1, x2 upgrades, milestones, and permanent upgrades.";
+var id = "complex_base_fixed";
+var name = "Complex Base Fixed";
+var description = "Skeleton with x1/x2, no .mul errors, tick works properly.";
 var authors = "You";
 var version = 1;
 var releaseOrder = "1";
@@ -16,11 +15,7 @@ var currency;
 var x1Upg, x2Upg;
 var rho_dot = BigNumber.ZERO;
 
-var t_cumulative = BigNumber.ZERO;
 var mainEquationPressed = false;
-
-var perm1, perm2, perm3;
-var milestone1, milestone2;
 
 ////////////////////
 // INIT FUNCTION
@@ -28,30 +23,20 @@ var init = () => {
   currency = theory.createCurrency();
 
   // x1 Upgrade
-  x1Upg = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(1, Math.log2(2))));
+  x1Upg = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(BigNumber.ONE, Math.log2(2))));
   x1Upg.getDescription = (_) => "x_1 = 2^{" + x1Upg.level + "}";
   x1Upg.getInfo = (amount) => "x_1 = 2^{" + (x1Upg.level + amount) + "}";
 
   // x2 Upgrade
-  x2Upg = theory.createUpgrade(1, currency, new FirstFreeCost(new ExponentialCost(1, Math.log2(2))));
+  x2Upg = theory.createUpgrade(1, currency, new FirstFreeCost(new ExponentialCost(BigNumber.ONE, Math.log2(2))));
   x2Upg.getDescription = (_) => "x_2 = 2^{" + x2Upg.level + "}";
   x2Upg.getInfo = (amount) => "x_2 = 2^{" + (x2Upg.level + amount) + "}";
 
   ////////////////////
   // Permanent Upgrades
-  theory.createPublicationUpgrade(0, currency, 1e6);
-  theory.createBuyAllUpgrade(1, currency, 1e12);
-  theory.createAutoBuyerUpgrade(2, currency, 1e18);
-
-  ////////////////////
-  // Milestones
-  milestone1 = theory.createMilestoneUpgrade(0, 1);
-  milestone1.getDescription = (_) => "Unlock bonus multiplier";
-  milestone1.getInfo = (_) => "Adds bonus to rho_dot";
-
-  milestone2 = theory.createMilestoneUpgrade(1, 1);
-  milestone2.getDescription = (_) => "Unlock secondary effect";
-  milestone2.getInfo = (_) => "Enhances x2 effect";
+  theory.createPublicationUpgrade(0, currency, BigNumber.from(1e6));
+  theory.createBuyAllUpgrade(1, currency, BigNumber.from(1e12));
+  theory.createAutoBuyerUpgrade(2, currency, BigNumber.from(1e18));
 
   ////////////////////
   updateAvailability();
@@ -59,18 +44,16 @@ var init = () => {
 
 ////////////////////
 // AVAILABILITY
-var updateAvailability = () => {
-  milestone1.isAvailable = x1Upg.level > 0;
-  milestone2.isAvailable = x2Upg.level > 0;
-};
+var updateAvailability = () => {};
 
 ////////////////////
 // TICK FUNCTION
 var tick = (elapsedTime, multiplier) => {
+  // EVERYTHING converted to BigNumber
   let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
   
-  let x1val = BigNumber.TWO.pow(x1Upg.level);
-  let x2val = BigNumber.TWO.pow(x2Upg.level);
+  let x1val = BigNumber.TWO.pow(BigNumber.from(x1Upg.level));
+  let x2val = BigNumber.TWO.pow(BigNumber.from(x2Upg.level));
 
   rho_dot = x1val.mul(x2val).mul(dt);
   currency.value = currency.value.add(rho_dot);
@@ -88,7 +71,7 @@ var getPrimaryEquation = () => {
 
 ////////////////////
 // INTERNAL STATE
-var getInternalState = () => t_cumulative.toString();
-var setInternalState = (state) => { t_cumulative = parseBigNumber(state); };
+var getInternalState = () => "0";
+var setInternalState = (state) => {};
 
 init();
