@@ -1,22 +1,22 @@
-import { ExponentialCost, FirstFreeCost, CustomCost } from "./api/Costs";
+import { ExponentialCost, FirstFreeCost } from "./api/Costs";
 import { parseBigNumber, BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
 // --- Meta ---
-var id = "barebones_theory";
-var name = "Barebones Theory";
-var description = "A minimal fully working Exponential Idle theory skeleton for testing.";
+var id = "barebones_big";
+var name = "Barebones BigNumber Theory";
+var description = "Minimal working skeleton with BigNumber-safe math.";
 var authors = "horchata#0000";
 var version = 1;
 var releaseOrder = "1";
 
 requiresGameVersion("1.4.33");
 
-// --- Currency ---
+// --- Currency & State ---
+var currency;
 var rho_dot = BigNumber.ZERO;
 var t_cumulative = BigNumber.ZERO;
-var currency;
 
 // --- Upgrades ---
 var x1, x2;
@@ -27,17 +27,17 @@ var milestone1, milestone2;
 // --- Permanent Upgrades ---
 var perm1, perm2;
 
-// --- Init function ---
+// --- Init Function ---
 var init = () => {
-    // Currency
     currency = theory.createCurrency();
 
-    // Regular Upgrades
+    // x1 upgrade
     x1 = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
     x1.level = 0;
     x1.getDescription = (_) => "x₁ upgrade";
     x1.getInfo = (_) => "Level: " + x1.level;
 
+    // x2 upgrade
     x2 = theory.createUpgrade(1, currency, new FirstFreeCost(new ExponentialCost(50, Math.log2(5))));
     x2.level = 0;
     x2.getDescription = (_) => "x₂ upgrade";
@@ -67,34 +67,36 @@ var init = () => {
     milestone2.getInfo = (_) => "Second milestone unlocked";
     milestone2.boughtOrRefunded = (_) => updateAvailability();
 
-    // Milestone cost (custom)
-    theory.setMilestoneCost(new CustomCost((total) => 10 * (total + 1)));
+    theory.setMilestoneCost(new ExponentialCost(10, Math.log2(2))); // simple milestone cost
 
-    // Story chapters
-    theory.createStoryChapter(0, "Getting Started", "This is your first theory.", () => currency.value >= 1);
+    // Story chapter
+    theory.createStoryChapter(0, "Getting Started", "This is your first theory.", () => currency.value.gte(BigNumber.ONE));
 
     updateAvailability();
 };
 
-// --- Update availability ---
+// --- Update Availability ---
 var updateAvailability = () => {
-    milestone1.isAvailable = perm1.level > 0;
-    milestone2.isAvailable = perm2.level > 0;
+    milestone1.isAvailable = perm1.level.gt(BigNumber.ZERO);
+    milestone2.isAvailable = perm2.level.gt(BigNumber.ZERO);
 };
 
-// --- Tick function ---
+// --- Tick Function ---
 var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime * multiplier);
+    let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
 
-    // Growth formula
+    // BigNumber-safe upgrades
     let x1val = BigNumber.ONE.add(BigNumber.from(x1.level));
     let x2val = BigNumber.ONE.add(BigNumber.from(x2.level));
+
+    // Growth calculation
     rho_dot = x1val.mul(x2val).mul(dt);
 
+    // Add to currency safely
     currency.value = currency.value.add(rho_dot);
 };
 
-// --- Reset function ---
+// --- Reset Function ---
 var reset = (hardReset) => {
     x1.level = 0;
     x2.level = 0;
@@ -106,8 +108,8 @@ var reset = (hardReset) => {
     updateAvailability();
 };
 
-// --- Internal state functions ---
-var getInternalState = () => `${x1.level} ${x2.level} ${perm1.level} ${perm2.level} ${t_cumulative}`;
+// --- Internal State ---
+var getInternalState = () => `${x1.level} ${x2.level} ${perm1.level} ${perm2.level} ${t_cumulative.toString()}`;
 var setInternalState = (state) => {
     let values = state.split(" ");
     if (values.length > 0) x1.level = parseInt(values[0]);
@@ -117,5 +119,5 @@ var setInternalState = (state) => {
     if (values.length > 4) t_cumulative = parseBigNumber(values[4]);
 };
 
-// Run init
+// --- Run Init ---
 init();
