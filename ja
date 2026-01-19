@@ -3,9 +3,9 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 
 // --- Meta ---
-var id = "simple_locked";
-var name = "Simple Locked";
-var description = "Barebones skeleton that works.";
+var id = "simple_locked2";
+var name = "Simple Locked 2";
+var description = "Barebones skeleton that works in EI. BigNumber-safe, no UI required.";
 var authors = "horchata#0000";
 var version = 1;
 
@@ -22,7 +22,7 @@ var x1;
 var init = () => {
     // create currency
     currency = theory.createCurrency();
-    currency.value = BigNumber.ONE; // MUST be BigNumber
+    currency.value = BigNumber.ONE; // initial value (won’t use .add directly)
 
     // simple upgrade
     x1 = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
@@ -35,12 +35,12 @@ var init = () => {
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
 
-    // BigNumber-safe calculation
+    // BigNumber-safe upgrade calculation
     let x1val = BigNumber.ONE.add(BigNumber.from(x1.level));
     rho_dot = x1val.mul(dt);
 
-    // add to currency safely
-    currency.value = currency.value.add(rho_dot);
+    // add to currency using SDK-safe method
+    currency.add(rho_dot);
 };
 
 // --- Reset Function ---
