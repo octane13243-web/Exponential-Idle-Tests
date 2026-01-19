@@ -1,116 +1,71 @@
-import { ExponentialCost, FirstFreeCost } from "./api/Costs";
-import { BigNumber, parseBigNumber } from "./api/BigNumber";
+import { ExponentialCost } from "./api/Costs";
+import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "complex_base";
-var name = "Complex Base Equation";
-var description = "A theory inspired by complex analysis, using series, products, and integrals in a BigNumber-safe way.";
-var authors = "Horchata";
+var id = "basic_complex";
+var name = "Complex Skeleton";
+var description = "A barebones skeleton theory for testing upgrades and graph.";
+var authors = "You#0000";
 var version = 1;
-var releaseOrder = "1";
 
 requiresGameVersion("1.4.33");
 
-var currency, rho_dot;
-var mainEquationPressed = false;
+//--------------------
+// Core variables
+//--------------------
+var currency;
+var x1, x2;
 
-// ===== Upgrades =====
-var x1, x2, x3, x4, x5;
-
-// === Init function ===
+//--------------------
+// Initialization
+//--------------------
 var init = () => {
-  currency = theory.createCurrency();
+    currency = theory.createCurrency();
 
-  // x1: 2^n style upgrade
-  x1 = theory.createUpgrade(0, currency, new ExponentialCost(1, Math.log2(2)));
-  x1.getDescription = (level) => "x_1 = 2^{" + level + "}";
-  x1.getInfo = (level) => "x_1 = 2^{" + level + "}";
-  x1.maxLevel = 10;
+    // Upgrade x1: 2^level style
+    x1 = theory.createUpgrade(0, currency, new ExponentialCost(1, Math.log2(2)));
+    x1.getDescription = (level) => "x_1 = " + BigNumber.TWO.pow(x1.level).toString(0);
+    x1.getInfo = (amount) => Utils.getMathTo(
+        BigNumber.TWO.pow(x1.level).toString(0),
+        BigNumber.TWO.pow(x1.level + amount).toString(0)
+    );
 
-  // x2
-  x2 = theory.createUpgrade(1, currency, new ExponentialCost(2, Math.log2(2)));
-  x2.getDescription = (level) => "x_2 = 2^{" + level + "}";
-  x2.getInfo = (level) => "x_2 = 2^{" + level + "}";
-  x2.maxLevel = 10;
-
-  // x3
-  x3 = theory.createUpgrade(2, currency, new ExponentialCost(1, Math.log2(2)));
-  x3.getDescription = (level) => "x_3 = 2^{" + level + "}";
-  x3.getInfo = (level) => "x_3 = 2^{" + level + "}";
-  x3.maxLevel = 10;
-
-  // x4
-  x4 = theory.createUpgrade(3, currency, new ExponentialCost(1, Math.log2(2)));
-  x4.getDescription = (level) => "x_4 = 2^{" + level + "}";
-  x4.getInfo = (level) => "x_4 = 2^{" + level + "}";
-  x4.maxLevel = 10;
-
-  // x5
-  x5 = theory.createUpgrade(4, currency, new ExponentialCost(1, Math.log2(2)));
-  x5.getDescription = (level) => "x_5 = 2^{" + level + "}";
-  x5.getInfo = (level) => "x_5 = 2^{" + level + "}";
-  x5.maxLevel = 10;
-
-  updateAvailability();
+    // Upgrade x2: 2^level style
+    x2 = theory.createUpgrade(1, currency, new ExponentialCost(1, Math.log2(2)));
+    x2.getDescription = (level) => "x_2 = " + BigNumber.TWO.pow(x2.level).toString(0);
+    x2.getInfo = (amount) => Utils.getMathTo(
+        BigNumber.TWO.pow(x2.level).toString(0),
+        BigNumber.TWO.pow(x2.level + amount).toString(0)
+    );
 };
 
-// === Update availability ===
-var updateAvailability = () => {
-  x1.isAvailable = true;
-  x2.isAvailable = true;
-  x3.isAvailable = true;
-  x4.isAvailable = true;
-  x5.isAvailable = true;
-};
-
-// === Tick function ===
+//--------------------
+// Tick function
+//--------------------
 var tick = (elapsedTime, multiplier) => {
-  let dt = BigNumber.from(elapsedTime * multiplier);
-  let bonus = theory.publicationMultiplier;
+    let dt = BigNumber.from(elapsedTime * multiplier);
+    let x1val = BigNumber.TWO.pow(x1.level);
+    let x2val = BigNumber.TWO.pow(x2.level);
 
-  let v1 = BigNumber.from(1).add(BigNumber.from(0.2).mul(x1.level));
-  let v2 = BigNumber.from(1).add(BigNumber.from(0.2).mul(x2.level));
-  let v3 = BigNumber.from(1).add(BigNumber.from(0.1).mul(x3.level));
-  let v4 = BigNumber.from(1).add(BigNumber.from(0.05).mul(x4.level));
-  let v5 = BigNumber.from(1).add(BigNumber.from(0.03).mul(x5.level));
-
-  // Approximations
-  let qSafe = currency.value.gt(BigNumber.ZERO) ? currency.value : BigNumber.ONE;
-  let sinApprox = qSafe.sub(qSafe.pow(3).div(BigNumber.from(6))).add(qSafe.pow(5).div(BigNumber.from(120)));
-  let lnApprox = qSafe.add(BigNumber.ONE).log10().mul(BigNumber.from(Math.LN10));
-
-  rho_dot = v1.mul(v2).mul(sinApprox.add(lnApprox)).mul(v3).mul(v4).mul(v5);
-
-  currency.value = currency.value.add(rho_dot.mul(dt).mul(bonus));
-
-  if(mainEquationPressed) theory.invalidatePrimaryEquation();
+    currency.value += x1val.mul(x2val).mul(dt);
 };
 
-// === Primary Equation ===
+//--------------------
+// Primary Equation
+//--------------------
 var getPrimaryEquation = () => {
-  theory.primaryEquationHeight = 80;
-  theory.primaryEquationScale = 1.0;
-
-  let eq = "\\dot{\\rho} = (x_1 + 1)(x_2 + 1)(\\sin(q) + \\ln(1+q))";
-  eq += "(x_3 + 1)(x_4 + 1)(x_5 + 1)";
-
-  return eq;
+    theory.primaryEquationHeight = 50;
+    theory.primaryEquationScale = 1.0;
+    return "\\dot{\\rho} = x_1 \\cdot x_2";
 };
 
-// === 2D Graph ===
+//--------------------
+// Graph
+//--------------------
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
-// === Overlay to capture touches ===
-var getEquationOverlay = () => {
-  return ui.createStackLayout({
-    horizontalOptions: LayoutOptions.FILL,
-    verticalOptions: LayoutOptions.FILL,
-    onTouched: (event) => {
-      mainEquationPressed = event.type == TouchType.PRESSED;
-      theory.invalidatePrimaryEquation();
-    },
-  });
-};
-
+//--------------------
+// Export functions
+//--------------------
 init();
