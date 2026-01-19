@@ -1,99 +1,108 @@
 import { ExponentialCost } from "./api/Costs";
 import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
+import { Utils } from "./api/Utils";
 
-// --- Meta ---
-var id = "complex_analysis_skeleton";
+// ---------- META ----------
+var id = "complex_analysis_safe";
 var name = "Complex Analysis";
-var description =
-  "Explore the growth of analytic functions f(z) in the complex plane. " +
-  "Upgrades increase derivative order and expand contours, revealing deeper growth patterns.";
-var authors = "horchata#0000";
+var description = "Growth of analytic functions in the complex plane.";
+var authors = "horchata";
 var version = 1;
 
 requiresGameVersion("1.4.33");
 
-// --- Currency & State ---
+// ---------- STATE ----------
 var currency;
-var rho_dot = 0; // current growth
-var x1_level = 0; // Derivative Boost
-var x2_level = 0; // Contour Expansion
-var milestoneUnlocked = false;
+var rho_dot = 0;
 
-// --- Init ---
+var x1_level = 0; // derivative order
+var x2_level = 0; // contour radius
+
+var milestone;
+
+// ---------- INIT ----------
 var init = () => {
     currency = theory.createCurrency();
     currency.value = BigNumber.ONE;
 
-    // Create upgrades
     createUpgrades();
-
-    // Create milestone
-    createMilestone();
+    createMilestones();
 };
 
+// ---------- UPGRADES ----------
 var createUpgrades = () => {
-    // x1
-    x1 = theory.createUpgrade(
-        0, currency, new ExponentialCost(10, Math.log2(2))
-    );
-    x1.getDescription = (_) => "x_1";
-    x1.getInfo = (_) => "x_1";
-    x1.bought = (_) => { x1_level += 1; };
 
-    // x2
-    x2 = theory.createUpgrade(
-        1, currency, new ExponentialCost(50, Math.log2(3))
+    // x_1
+    let x1 = theory.createUpgrade(
+        0,
+        currency,
+        new ExponentialCost(10, Math.log2(2))
     );
-    x2.getDescription = (_) => "x_2";
-    x2.getInfo = (_) => "x_2";
-    x2.bought = (_) => { x2_level += 1; };
+
+    x1.getDescription = (_) => Utils.getMath("x_1");
+    x1.getInfo = (_) => Utils.getMath("x_1");
+    x1.bought = (_) => { x1_level++; };
+
+    // x_2
+    let x2 = theory.createUpgrade(
+        1,
+        currency,
+        new ExponentialCost(50, Math.log2(3))
+    );
+
+    x2.getDescription = (_) => Utils.getMath("x_2");
+    x2.getInfo = (_) => Utils.getMath("x_2");
+    x2.bought = (_) => { x2_level++; };
 };
 
-// --- Milestone ---
-var createMilestone = () => {
+// ---------- MILESTONE ----------
+var createMilestones = () => {
     milestone = theory.createMilestoneUpgrade(0, 1);
-    milestone.getDescription = (_) => "Cauchy's Theorem Unlock";
-    milestone.getInfo = (_) => "Enables advanced contour growth";
-    milestone.boughtOrRefunded = (_) => {
-        milestoneUnlocked = milestone.level > 0;
-    };
+    milestone.getDescription = (_) => "Cauchy's Theorem";
+    milestone.getInfo = (_) => "Doubles growth";
 };
 
-// --- Tick Function ---
+// ---------- TICK ----------
 var tick = (elapsedTime, multiplier) => {
-    let baseGrowth = (1 + x1_level) * (1 + x2_level);
-    if(milestoneUnlocked) baseGrowth *= 2; // milestone doubles growth
 
-    rho_dot = baseGrowth * elapsedTime * multiplier;
+    let base = (1 + x1_level) * (1 + x2_level);
 
-    currency.value = BigNumber.from(currency.value.toNumber() + rho_dot);
+    if (milestone.level > 0)
+        base *= 2;
+
+    rho_dot = base * elapsedTime * multiplier;
+
+    currency.value = BigNumber.from(
+        currency.value.toNumber() + rho_dot
+    );
 };
 
-// --- Reset ---
-var reset = (hardReset) => {
+// ---------- PRIMARY EQUATION ----------
+theory.primaryEquationHeight = 40;
+theory.getPrimaryEquation = () =>
+    Utils.getMath(
+        "\\dot{\\rho} = (1 + x_1)(1 + x_2)" +
+        (milestone.level > 0 ? "\\cdot 2" : "")
+    );
+
+// ---------- SAVE / LOAD ----------
+var getInternalState = () =>
+    `${x1_level} ${x2_level} ${milestone.level}`;
+
+var setInternalState = (state) => {
+    let s = state.split(" ");
+    x1_level = parseInt(s[0]);
+    x2_level = parseInt(s[1]);
+    milestone.level = parseInt(s[2]);
+};
+
+// ---------- RESET ----------
+var reset = () => {
     x1_level = 0;
     x2_level = 0;
     rho_dot = 0;
-    milestoneUnlocked = false;
     currency.value = BigNumber.ONE;
 };
 
-// --- Internal State ---
-var getInternalState = () => `${x1_level} ${x2_level} ${milestone.level}`;
-var setInternalState = (state) => {
-    let values = state.split(" ");
-    if (values.length > 0) x1_level = parseInt(values[0]);
-    if (values.length > 1) x2_level = parseInt(values[1]);
-    if (values.length > 2) milestone.level = parseInt(values[2]);
-};
-
 init();
-
-// --- Primary Equation ---
-theory.primaryEquationHeight = 40;
-theory.getPrimaryEquation = () => {
-    let result = "\\dot{\\rho} = |f^{(" + x1_level + ")}(z)| \\cdot ";
-    result += "(1 + x_2" + (milestoneUnlocked ? ") \\cdot 2" : ")");
-    return result;
-};
