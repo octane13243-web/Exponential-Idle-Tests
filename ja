@@ -3,9 +3,9 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "complex_skeleton";
-var name = "Complex Skeleton";
-var description = "A parseable skeleton with exponential upgrades and permanent upgrades.";
+var id = "simple_two_upgrades";
+var name = "Simple Two Upgrades";
+var description = "Barebones EI theory with 2 upgrades, tick, and primary equation.";
 var authors = "You#0000";
 var version = 1;
 
@@ -23,28 +23,21 @@ var x1, x2;
 var init = () => {
     currency = theory.createCurrency();
 
-    // Upgrade x1: 2^level style
+    // Upgrade x1: 2^level
     x1 = theory.createUpgrade(0, currency, new ExponentialCost(1, Math.log2(2)));
-    x1.getDescription = (level) => "x_1 = " + BigNumber.TWO.pow(x1.level).toString(0);
+    x1.getDescription = (level) => "x_1 = " + BigNumber.TWO.pow(BigNumber.from(x1.level)).toString(0);
     x1.getInfo = (amount) => Utils.getMathTo(
-        BigNumber.TWO.pow(x1.level).toString(0),
-        BigNumber.TWO.pow(x1.level + amount).toString(0)
+        BigNumber.TWO.pow(BigNumber.from(x1.level)).toString(0),
+        BigNumber.TWO.pow(BigNumber.from(x1.level + amount)).toString(0)
     );
 
-    // Upgrade x2: 2^level style
+    // Upgrade x2: 2^level
     x2 = theory.createUpgrade(1, currency, new ExponentialCost(1, Math.log2(2)));
-    x2.getDescription = (level) => "x_2 = " + BigNumber.TWO.pow(x2.level).toString(0);
+    x2.getDescription = (level) => "x_2 = " + BigNumber.TWO.pow(BigNumber.from(x2.level)).toString(0);
     x2.getInfo = (amount) => Utils.getMathTo(
-        BigNumber.TWO.pow(x2.level).toString(0),
-        BigNumber.TWO.pow(x2.level + amount).toString(0)
+        BigNumber.TWO.pow(BigNumber.from(x2.level)).toString(0),
+        BigNumber.TWO.pow(BigNumber.from(x2.level + amount)).toString(0)
     );
-
-    //--------------------
-    // Permanent Upgrades
-    //--------------------
-    theory.createPublicationUpgrade(0, currency, 1e6);    // Publication
-    theory.createBuyAllUpgrade(1, currency, 1e9);        // Buy All
-    theory.createAutoBuyerUpgrade(2, currency, 1e12);    // Auto Upgrade
 };
 
 //--------------------
@@ -53,8 +46,8 @@ var init = () => {
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
 
-    let x1val = BigNumber.from(BigNumber.TWO.pow(x1.level));
-    let x2val = BigNumber.from(BigNumber.TWO.pow(x2.level));
+    let x1val = BigNumber.TWO.pow(BigNumber.from(x1.level));
+    let x2val = BigNumber.TWO.pow(BigNumber.from(x2.level));
 
     currency.value = currency.value.add(x1val.mul(x2val).mul(dt));
 };
