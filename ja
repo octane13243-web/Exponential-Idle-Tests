@@ -3,9 +3,11 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 
 // --- Meta ---
-var id = "number_safe_skeleton";
-var name = "Number Safe Skeleton";
-var description = "Works in SDK versions where mul/add don’t exist.";
+var id = "complex_analysis_skeleton";
+var name = "Complex Analysis";
+var description =
+  "Explore the growth of analytic functions f(z) in the complex plane. " +
+  "Upgrades increase derivative order and expand contours, revealing deeper growth patterns.";
 var authors = "horchata#0000";
 var version = 1;
 
@@ -13,41 +15,66 @@ requiresGameVersion("1.4.33");
 
 // --- Currency & State ---
 var currency;
-var rho_dot = 0; // use JS number instead of BigNumber
-var x1_level = 0;
+var rho_dot = 0; // current growth
+var x1_level = 0; // Derivative Boost
+var x2_level = 0; // Contour Expansion
 
 // --- Init ---
 var init = () => {
     currency = theory.createCurrency();
     currency.value = BigNumber.ONE;
+
+    // Create simple upgrades
+    createUpgrades();
 };
 
-// --- Tick ---
+var createUpgrades = () => {
+    // Derivative Boost (x1)
+    derivativeUpgrade = theory.createUpgrade(
+        0, currency, new ExponentialCost(10, Math.log2(2))
+    );
+    derivativeUpgrade.getDescription = (_) => "Derivative order: " + x1_level;
+    derivativeUpgrade.getInfo = (_) => "Derivative order: " + x1_level;
+
+    derivativeUpgrade.bought = (_) => {
+        x1_level += 1;
+    };
+
+    // Contour Expansion (x2)
+    contourUpgrade = theory.createUpgrade(
+        1, currency, new ExponentialCost(50, Math.log2(3))
+    );
+    contourUpgrade.getDescription = (_) => "Contour radius: " + (1 + x2_level);
+    contourUpgrade.getInfo = (_) => "Contour radius: " + (1 + x2_level);
+
+    contourUpgrade.bought = (_) => {
+        x2_level += 1;
+    };
+};
+
+// --- Tick Function ---
 var tick = (elapsedTime, multiplier) => {
-    // calculate rho_dot as plain number
-    rho_dot = (1 + x1_level) * elapsedTime * multiplier;
+    // safe JS numbers for calculations
+    rho_dot = (1 + x1_level) * (1 + x2_level) * elapsedTime * multiplier;
 
-    // increment currency safely
+    // increment currency
     currency.value = BigNumber.from(currency.value.toNumber() + rho_dot);
-};
-
-// --- Upgrade Function ---
-var buyX1 = () => {
-    x1_level += 1; // simple upgrade
 };
 
 // --- Reset ---
 var reset = (hardReset) => {
     x1_level = 0;
+    x2_level = 0;
     rho_dot = 0;
     currency.value = BigNumber.ONE;
 };
 
 // --- Internal State ---
-var getInternalState = () => `${x1_level}`;
+var getInternalState = () => `${x1_level} ${x2_level}`;
 var setInternalState = (state) => {
     let values = state.split(" ");
     if (values.length > 0) x1_level = parseInt(values[0]);
+    if (values.length > 1) x2_level = parseInt(values[1]);
 };
 
 init();
