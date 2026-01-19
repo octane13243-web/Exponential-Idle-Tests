@@ -1,0 +1,43 @@
+var id = "basic_theory";
+var name = "Basic Theory";
+var description = "Just a basic working theory template.";
+
+var authors = "horchata#0000";
+var version = "1.0.0";
+var publicationExponent = 0.5;
+
+var rho; // currency
+
+// Upgrades
+var x1, x2;
+
+var init = () => {
+    // Currency
+    rho = theory.createCurrency();
+
+    // Upgrades
+    x1 = theory.createUpgrade(0, rho, new ExponentialCost(10, Math.log2(2)));
+    x1.getDescription = (_) => "x₁ = " + x1.level;
+    x1.getInfo = (_) => "x₁ = " + x1.level;
+
+    x2 = theory.createUpgrade(1, rho, new ExponentialCost(100, Math.log2(5)));
+    x2.getDescription = (_) => "x₂ = " + x2.level;
+    x2.getInfo = (_) => "x₂ = " + x2.level;
+
+    // Primary equation
+    theory.primaryEquation = () => `ρ = ${x1.level + 1} × ${x2.level + 1}`;
+};
+
+// Tick function (simulation step)
+var tick = (elapsedTime, multiplier) => {
+    let dt = elapsedTime * multiplier;
+    let gain = (x1.level + 1) * (x2.level + 1) * dt;
+    rho.value = rho.value + gain;
+};
+
+// Reset function
+var reset = (hardReset) => {
+    x1.level = 0;
+    x2.level = 0;
+    rho.value = 0;
+};
