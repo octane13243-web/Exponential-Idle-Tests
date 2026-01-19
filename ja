@@ -1,12 +1,12 @@
-import { ExponentialCost } from "./api/Costs";
+import { ExponentialCost, CompositeCost } from "./api/Costs";
 import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-// Basic theory info
-var id = "barebones_skeleton";
-var name = "Barebones Skeleton";
-var description = "A simple working theory with 2 upgrades, a tick, and primary equation display.";
+// Basic info
+var id = "barebones_full";
+var name = "Barebones Full Theory";
+var description = "A working theory with x1, x2, permanents, milestones, and a proper tick.";
 var authors = "You#0000";
 var version = 1;
 var releaseOrder = "1";
@@ -20,31 +20,50 @@ var x1 = BigNumber.ZERO, x2 = BigNumber.ZERO;
 // Upgrades
 var x1Upg, x2Upg;
 
+// Permanents
+var permPub, permBuyAll, permAuto;
+
+// Milestones
+var milestone1, milestone2;
+
 var init = () => {
     currency = theory.createCurrency();
 
-    // Upgrade x1: exponential 2^level
+    // ---- Regular upgrades ----
     x1Upg = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
     x1Upg.getDescription = (level) => "x_1 = " + BigNumber.from(2).pow(x1Upg.level).toString();
     x1Upg.getInfo = (amount) => "x_1 = " + BigNumber.from(2).pow(x1Upg.level + amount).toString();
 
-    // Upgrade x2: exponential 2^level
     x2Upg = theory.createUpgrade(1, currency, new ExponentialCost(100, Math.log2(2)));
     x2Upg.getDescription = (level) => "x_2 = " + BigNumber.from(2).pow(x2Upg.level).toString();
     x2Upg.getInfo = (amount) => "x_2 = " + BigNumber.from(2).pow(x2Upg.level + amount).toString();
+
+    // ---- Permanent Upgrades ----
+    permPub = theory.createPublicationUpgrade(0, currency, 1e5);
+    permBuyAll = theory.createBuyAllUpgrade(1, currency, 1e8);
+    permAuto = theory.createAutoBuyerUpgrade(2, currency, 1e10);
+
+    // ---- Milestones ----
+    milestone1 = theory.createMilestoneUpgrade(0, 2);
+    milestone1.getDescription = (_) => "Multiply x1 by 2";
+    milestone1.getInfo = (_) => "x1 upgrade effect doubled";
+    milestone1.boughtOrRefunded = (_) => theory.invalidatePrimaryEquation();
+
+    milestone2 = theory.createMilestoneUpgrade(1, 2);
+    milestone2.getDescription = (_) => "Multiply x2 by 2";
+    milestone2.getInfo = (_) => "x2 upgrade effect doubled";
+    milestone2.boughtOrRefunded = (_) => theory.invalidatePrimaryEquation();
 };
 
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime) * BigNumber.from(multiplier);
 
-    // Update x1 and x2 values
-    x1 = BigNumber.from(2).pow(x1Upg.level);
-    x2 = BigNumber.from(2).pow(x2Upg.level);
+    // Apply milestone multipliers
+    let x1val = BigNumber.from(2).pow(x1Upg.level) * (milestone1.level + 1);
+    let x2val = BigNumber.from(2).pow(x2Upg.level) * (milestone2.level + 1);
 
-    // rho_dot calculation
-    rho_dot = x1 * x2 * dt;
+    rho_dot = x1val * x2val * dt;
 
-    // Update currency
     currency.value += rho_dot;
 
     theory.invalidatePrimaryEquation();
@@ -52,10 +71,10 @@ var tick = (elapsedTime, multiplier) => {
 
 var getPrimaryEquation = () => {
     theory.primaryEquationHeight = 50;
-    return "\\dot{\\rho} = x_1 \\cdot x_2";
+    return "\\dot{\\rho} = x_1 \\cdot x_2 \\cdot (Milestones)";
 };
 
-// Optional: reset function
+// Optional: reset
 var postPublish = () => {
     rho_dot = BigNumber.ZERO;
     x1 = BigNumber.ZERO;
