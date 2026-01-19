@@ -3,9 +3,9 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "fixed_two_upgrades";
-var name = "Fixed Two Upgrades Skeleton";
-var description = "BigNumber-safe skeleton: 2 upgrades, tick, primary equation, graph, permanent upgrades.";
+var id = "working_two_upgrades";
+var name = "Working Two Upgrades";
+var description = "Functional skeleton: 2 upgrades, tick, primary equation, graph, permanent upgrades.";
 var authors = "You#0000";
 var version = 1;
 
@@ -25,18 +25,18 @@ var init = () => {
 
     // Upgrade x1: 2^level
     x1 = theory.createUpgrade(0, currency, new ExponentialCost(1, Math.log2(2)));
-    x1.getDescription = (level) => "x_1 = " + BigNumber.from(2).pow(BigNumber.from(x1.level)).toString(0);
+    x1.getDescription = (level) => "x_1 = " + BigNumber.TWO.pow(x1.level).toString(0);
     x1.getInfo = (amount) => Utils.getMathTo(
-        BigNumber.from(2).pow(BigNumber.from(x1.level)).toString(0),
-        BigNumber.from(2).pow(BigNumber.from(x1.level + amount)).toString(0)
+        BigNumber.TWO.pow(x1.level).toString(0),
+        BigNumber.TWO.pow(x1.level + amount).toString(0)
     );
 
     // Upgrade x2: 2^level
     x2 = theory.createUpgrade(1, currency, new ExponentialCost(1, Math.log2(2)));
-    x2.getDescription = (level) => "x_2 = " + BigNumber.from(2).pow(BigNumber.from(x2.level)).toString(0);
+    x2.getDescription = (level) => "x_2 = " + BigNumber.TWO.pow(x2.level).toString(0);
     x2.getInfo = (amount) => Utils.getMathTo(
-        BigNumber.from(2).pow(BigNumber.from(x2.level)).toString(0),
-        BigNumber.from(2).pow(BigNumber.from(x2.level + amount)).toString(0)
+        BigNumber.TWO.pow(x2.level).toString(0),
+        BigNumber.TWO.pow(x2.level + amount).toString(0)
     );
 
     //--------------------
@@ -53,9 +53,9 @@ var init = () => {
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
 
-    // wrap everything in BigNumber.from() so mul() works
-    let x1val = BigNumber.from(2).pow(BigNumber.from(x1.level));
-    let x2val = BigNumber.from(2).pow(BigNumber.from(x2.level));
+    // BigNumber-safe calculation
+    let x1val = BigNumber.TWO.pow(x1.level);
+    let x2val = BigNumber.TWO.pow(x2.level);
 
     let gain = x1val.mul(x2val).mul(dt);
     currency.value = currency.value.add(gain);
