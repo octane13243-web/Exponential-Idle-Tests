@@ -3,9 +3,9 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "basic_complex";
+var id = "complex_skeleton";
 var name = "Complex Skeleton";
-var description = "A barebones skeleton theory for testing upgrades and graph.";
+var description = "A parseable skeleton with exponential upgrades and permanent upgrades.";
 var authors = "You#0000";
 var version = 1;
 
@@ -38,6 +38,13 @@ var init = () => {
         BigNumber.TWO.pow(x2.level).toString(0),
         BigNumber.TWO.pow(x2.level + amount).toString(0)
     );
+
+    //--------------------
+    // Permanent Upgrades
+    //--------------------
+    theory.createPublicationUpgrade(0, currency, 1e6);    // Publication
+    theory.createBuyAllUpgrade(1, currency, 1e9);        // Buy All
+    theory.createAutoBuyerUpgrade(2, currency, 1e12);    // Auto Upgrade
 };
 
 //--------------------
@@ -45,10 +52,11 @@ var init = () => {
 //--------------------
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
-    let x1val = BigNumber.TWO.pow(x1.level);
-    let x2val = BigNumber.TWO.pow(x2.level);
 
-    currency.value += x1val.mul(x2val).mul(dt);
+    let x1val = BigNumber.from(BigNumber.TWO.pow(x1.level));
+    let x2val = BigNumber.from(BigNumber.TWO.pow(x2.level));
+
+    currency.value = currency.value.add(x1val.mul(x2val).mul(dt));
 };
 
 //--------------------
@@ -65,7 +73,5 @@ var getPrimaryEquation = () => {
 //--------------------
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
-//--------------------
-// Export functions
 //--------------------
 init();
