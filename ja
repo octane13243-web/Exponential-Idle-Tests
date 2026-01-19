@@ -3,57 +3,63 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "fixed_two_upgrades";
-var name = "Fixed Two Upgrades";
-var description = "Skeleton with 2 upgrades, safe tick, primary equation, and permanent upgrades";
+// Basic theory info
+var id = "barebones_skeleton";
+var name = "Barebones Skeleton";
+var description = "A simple working theory with 2 upgrades, a tick, and primary equation display.";
 var authors = "You#0000";
 var version = 1;
+var releaseOrder = "1";
 
 requiresGameVersion("1.4.33");
 
-var currency;
-var x1, x2;
+// Core variables
+var currency, rho_dot = BigNumber.ZERO;
+var x1 = BigNumber.ZERO, x2 = BigNumber.ZERO;
 
-// store BigNumber values manually
-var x1val = BigNumber.ONE;
-var x2val = BigNumber.ONE;
+// Upgrades
+var x1Upg, x2Upg;
 
 var init = () => {
     currency = theory.createCurrency();
 
-    x1 = theory.createUpgrade(0, currency, new ExponentialCost(1, Math.log2(2)));
-    x1.getDescription = (level) => "x_1 = " + x1val.toString(0);
-    x1.getInfo = (amount) => Utils.getMathTo(x1val.toString(0), BigNumber.TWO.pow(x1.level + amount));
+    // Upgrade x1: exponential 2^level
+    x1Upg = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
+    x1Upg.getDescription = (level) => "x_1 = " + BigNumber.from(2).pow(x1Upg.level).toString();
+    x1Upg.getInfo = (amount) => "x_1 = " + BigNumber.from(2).pow(x1Upg.level + amount).toString();
 
-    x2 = theory.createUpgrade(1, currency, new ExponentialCost(1, Math.log2(2)));
-    x2.getDescription = (level) => "x_2 = " + x2val.toString(0);
-    x2.getInfo = (amount) => Utils.getMathTo(x2val.toString(0), BigNumber.TWO.pow(x2.level + amount));
-
-    // Permanent upgrades
-    theory.createPublicationUpgrade(0, currency, 1e6);
-    theory.createBuyAllUpgrade(1, currency, 1e12);
-    theory.createAutoBuyerUpgrade(2, currency, 1e18);
+    // Upgrade x2: exponential 2^level
+    x2Upg = theory.createUpgrade(1, currency, new ExponentialCost(100, Math.log2(2)));
+    x2Upg.getDescription = (level) => "x_2 = " + BigNumber.from(2).pow(x2Upg.level).toString();
+    x2Upg.getInfo = (amount) => "x_2 = " + BigNumber.from(2).pow(x2Upg.level + amount).toString();
 };
 
 var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
+    let dt = BigNumber.from(elapsedTime) * BigNumber.from(multiplier);
 
-    // update BigNumber values manually
-    x1val = BigNumber.TWO.pow(x1.level);
-    x2val = BigNumber.TWO.pow(x2.level);
+    // Update x1 and x2 values
+    x1 = BigNumber.from(2).pow(x1Upg.level);
+    x2 = BigNumber.from(2).pow(x2Upg.level);
 
-    let gain = x1val.mul(x2val).mul(dt);
-    currency.value = currency.value.add(gain);
+    // rho_dot calculation
+    rho_dot = x1 * x2 * dt;
+
+    // Update currency
+    currency.value += rho_dot;
+
+    theory.invalidatePrimaryEquation();
 };
 
 var getPrimaryEquation = () => {
     theory.primaryEquationHeight = 50;
-    theory.primaryEquationScale = 1.0;
     return "\\dot{\\rho} = x_1 \\cdot x_2";
 };
 
-var get2DGraphValue = () => {
-    return currency.value.sign * (BigNumber.ONE.add(currency.value.abs())).log10().toNumber();
+// Optional: reset function
+var postPublish = () => {
+    rho_dot = BigNumber.ZERO;
+    x1 = BigNumber.ZERO;
+    x2 = BigNumber.ZERO;
 };
 
 init();
