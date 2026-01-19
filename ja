@@ -2,9 +2,9 @@ import { theory } from "./api/Theory";
 import { BigNumber } from "./api/BigNumber";
 import { ExponentialCost, FirstFreeCost } from "./api/Costs";
 
-var id = "locked_mul_test";
-var name = "Locked Mul Test";
-var description = "Skeleton with x1/x2 upgrades, tick works, no .mul errors";
+var id = "x1x2_skeleton";
+var name = "X1 X2 Skeleton";
+var description = "Tick works, primary equation displays, no .mul errors";
 var authors = "You";
 var version = 1;
 var releaseOrder = "1";
@@ -55,8 +55,10 @@ var updateAvailability = () => {};
 ////////////////////
 // TICK FUNCTION
 var tick = (elapsedTime, multiplier) => {
-    // wrap everything in BigNumber
+    // wrap EVERYTHING in BigNumber
     let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
+
+    // wrap upgrade levels
     let x1val = BigNumber.TWO.pow(BigNumber.from(x1Upg.level));
     let x2val = BigNumber.TWO.pow(BigNumber.from(x2Upg.level));
 
@@ -76,7 +78,7 @@ var getPrimaryEquation = () => {
 
 ////////////////////
 // INTERNAL STATE
-var getInternalState = () => "0";
+var getInternalState = () => "";
 var setInternalState = (state) => {};
 
 init();
