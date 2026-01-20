@@ -1,95 +1,47 @@
-import { ExponentialCost, FirstFreeCost, CompositeCost } from "./api/Costs";
-import { BigNumber, parseBigNumber } from "./api/BigNumber";
+import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
-import { Utils } from "./api/Utils";
+import { ExponentialCost } from "./api/Costs";
 
-var id = "complex_theme";
-var name = "Complex Theme Skeleton";
-var description = "A starting template for a theory with 2 upgrades, milestones, and primary equation display.";
-var authors = "horchata";
-var version = 1;
-var releaseOrder = "1";
+let rho = BigNumber.ZERO;
 
-requiresGameVersion("1.4.33");
+// upgrades
+let c1, c2;
 
-// CORE VARIABLES
-var currency;
-var x1, x2;
-var perm1, perm2, perm3;
-var milestone1;
-var mainEquationPressed = false;
-var q = BigNumber.ZERO;
+theory.createCurrency();
 
-// INIT FUNCTION
-var init = () => {
-    currency = theory.createCurrency();
+theory.primaryEquation = "\\dot{\\rho} = \\log(1+\\rho)(1 + c_1)(1 + c_2)";
+theory.secondaryEquation = "c_1 = 2^{x_1},\\; c_2 = 2^{x_2}";
+theory.description = "A logarithmic–product growth theory.";
+theory.name = "Log Product Growth";
 
-    ////////////////////////////
-    // REGULAR UPGRADES
-    {
-        x1 = theory.createUpgrade(0, currency, new ExponentialCost(1e2, Math.log2(10)));
-        x1.getDescription = (level) => "x_1 = " + (2 ** level).toString();
-        x1.getInfo = (amount) => "x_1 = " + (2 ** (x1.level + amount)).toString();
-    }
+// ===== UPGRADES =====
+c1 = theory.createUpgrade(0, new ExponentialCost(10, Math.log2(2)));
+c1.getDescription = (_) => "c_1 = 2^{x_1}";
+c1.getInfo = (_) => "Increases first product term";
+c1.level = 0;
 
-    {
-        x2 = theory.createUpgrade(1, currency, new ExponentialCost(1e3, Math.log2(15)));
-        x2.getDescription = (level) => "x_2 = " + (2 ** level).toString();
-        x2.getInfo = (amount) => "x_2 = " + (2 ** (x2.level + amount)).toString();
-    }
+c2 = theory.createUpgrade(1, new ExponentialCost(100, Math.log2(2)));
+c2.getDescription = (_) => "c_2 = 2^{x_2}";
+c2.getInfo = (_) => "Increases second product term";
+c2.level = 0;
 
-    ////////////////////////////
-    // PERMANENT UPGRADES
-    theory.createPublicationUpgrade(0, currency, 1e8);
-    theory.createBuyAllUpgrade(1, currency, 1e15);
-    theory.createAutoBuyerUpgrade(2, currency, 1e25);
-
-    perm1 = theory.createPermanentUpgrade(3, currency, new ExponentialCost(1e50, 2));
-    perm1.getDescription = (_) => "Permanent Upgrade 1";
-    perm1.getInfo = (_) => "Permanent Upgrade 1 Info";
-
-    ////////////////////////////
-    // MILESTONES
-    milestone1 = theory.createMilestoneUpgrade(0, 1);
-    milestone1.getDescription = (_) => "Unlock extra x_1 boost";
-    milestone1.getInfo = (_) => "This milestone improves x_1 gain";
-
-    updateAvailability();
-};
-
-// UPDATE AVAILABILITY
-var updateAvailability = () => {
-    milestone1.isAvailable = true;
-    x1.isAvailable = true;
-    x2.isAvailable = true;
-};
-
-// TICK FUNCTION
-var tick = (elapsedTime, multiplier) => {
+// ===== TICK FUNCTION =====
+theory.tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime) * BigNumber.from(multiplier);
 
-    // Calculate gains safely using JS operators
-    let x1val = BigNumber.from(2).pow(BigNumber.from(x1.level));
-    let x2val = BigNumber.from(2).pow(BigNumber.from(x2.level));
+    let c1val = BigNumber.TWO.pow(c1.level);
+    let c2val = BigNumber.TWO.pow(c2.level);
 
-    let gain = x1val * x2val * dt;
+    let logTerm = BigNumber.from(Math.log(1 + rho.toNumber()));
 
-    currency.value += gain;
+    let rhoDot =
+        logTerm *
+        (BigNumber.ONE + c1val) *
+        (BigNumber.ONE + c2val);
 
-    if(mainEquationPressed) theory.invalidatePrimaryEquation();
+    rho += rhoDot * dt;
 };
 
-// PRIMARY EQUATION
-var getPrimaryEquation = () => {
-    theory.primaryEquationHeight = 40;
-    return "\\dot{q} = x_1 \\cdot x_2";
-};
-
-// INTERNAL STATE
-var getInternalState = () => q.toString();
-var setInternalState = (state) => { q = parseBigNumber(state); };
-
-// POST-PUBLISH RESET
-var postPublish = () => { q = BigNumber.ZERO; };
-
-init();
+// ===== SAVE / LOAD =====
+theory.getPrimaryEquation = () => theory.primaryEquation;
+theory.getSecondaryEquation = () => theory.secondaryEquation;
