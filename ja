@@ -1,72 +1,47 @@
-import { BigNumber } from "./api/BigNumber";
-import { theory } from "./api/Theory";
 import { ExponentialCost } from "./api/Costs";
+import { BigNumber, parseBigNumber } from "./api/BigNumber";
+import { theory } from "./api/Theory";
+import { Utils } from "./api/Utils";
+
+var id = "log_base";
+var name = "Logarithmic Base";
+var description = "ρ grows slowly based on c₁. Simple and clean.";
+var authors = "horchata";
+var version = 1;
 
 requiresGameVersion("1.4.33");
 
-// ===== METADATA =====
-theory.name = "Log Product Growth";
-theory.description = "A theory based on logarithmic and product growth.";
-theory.authors = "horchata";
-theory.version = 1;
+var rho = BigNumber.ZERO;
+var c1;
 
-// ===== CURRENCY =====
-let currency = theory.createCurrency();
+var init = () => {
+    currency = theory.createCurrency();
 
-// ===== VARIABLES =====
-let c1, c2;
-
-// ===== UPGRADES =====
-c1 = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
-c1.getDescription = (_) => "c_1 = 2^{x_1}";
-c1.getInfo = (_) => "c_1 = 2^{x_1}";
-
-c2 = theory.createUpgrade(1, currency, new ExponentialCost(100, Math.log2(3)));
-c2.getDescription = (_) => "c_2 = 3^{x_2}";
-c2.getInfo = (_) => "c_2 = 3^{x_2}";
-
-// ===== MILESTONES =====
-let mLog = theory.createMilestoneUpgrade(0, 1);
-mLog.description = "Unlock logarithmic growth";
-
-let mLogPow = theory.createMilestoneUpgrade(1, 2);
-mLogPow.description = "Raise logarithm to a power";
-
-// ===== EQUATIONS =====
-theory.primaryEquationHeight = 60;
-
-theory.getPrimaryEquation = () => {
-    let eq = "\\dot{\\rho} = (2^{x_1} 3^{x_2})";
-    if (mLog.level > 0) eq += "\\log(2^{x_1} 3^{x_2})";
-    if (mLogPow.level > 0) eq += "^{1.25}";
-    return eq;
+    // c1 upgrade
+    c1 = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
+    c1.getDescription = (_) => "c₁ = " + c1.level;
+    c1.getInfo = (_) => "c₁ = " + c1.level;
 };
 
-theory.secondaryEquation = "c_1 = 2^{x_1},\\; c_2 = 3^{x_2}";
+var tick = (elapsedTime, multiplier) => {
+    let dt = BigNumber.from(elapsedTime * multiplier);
 
-// ===== GRAPH =====
-theory.graphTitle = "ρ Growth";
-theory.graphXAxisLabel = "Time";
-theory.graphYAxisLabel = "ρ";
-
-// ===== TICK =====
-theory.tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime) * BigNumber.from(multiplier);
-
-    let c1val = BigNumber.TWO.pow(c1.level);
-    let c2val = BigNumber.from(3).pow(c2.level);
-
-    let prod = c1val * c2val;
-    let growth = prod;
-
-    if (mLog.level > 0) {
-        let logTerm = BigNumber.from(Math.log(prod.toNumber() + 1));
-        growth = growth * logTerm;
+    if(c1.level > 0) {
+        rho = BigNumber.from(Math.log(c1.level)/10);
     }
 
-    if (mLogPow.level > 0) {
-        growth = BigNumber.from(Math.pow(growth.toNumber(), 1.25));
-    }
-
-    currency.value += growth * dt;
+    currency.value += rho * dt;
 };
+
+var getPrimaryEquation = () => {
+    theory.primaryEquationHeight = 50;
+    return "\\rho = \\frac{\\ln(c_1)}{10}";
+};
+
+var getInternalState = () => `${c1.level}`;
+var setInternalState = (state) => {
+    let values = state.split(" ");
+    if(values.length > 0) c1.level = parseInt(values[0]);
+};
+
+init();
