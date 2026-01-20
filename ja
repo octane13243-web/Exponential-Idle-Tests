@@ -16,18 +16,18 @@ var c1;
 var init = () => {
     currency = theory.createCurrency();
 
-    // c1 upgrade, first free
-    c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(10, Math.log2(2))));
-    c1.getDescription = (_) => "c₁ = " + c1.level;
-    c1.getInfo = (_) => "c₁ = " + c1.level;
+    // c₁ upgrade, first free
+    c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(2, Math.log2(2))));
+    c1.getDescription = (_) => "c_1 = " + (c1.level + 1); // display actual value
+    c1.getInfo = (_) => "c_1 = " + (c1.level + 1);
 };
 
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
 
-    if(c1.level > 0) {
-        rho = BigNumber.from(Math.log10(c1.level)/10); // log base 10
-    }
+    // start c₁ at 2
+    let c1val = BigNumber.from(c1.level + 2); // so first level is 2
+    rho = BigNumber.from(Math.log10(c1val.toNumber()) / 10);
 
     currency.value += rho * dt;
 };
