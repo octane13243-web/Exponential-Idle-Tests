@@ -2,46 +2,71 @@ import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { ExponentialCost } from "./api/Costs";
 
-let rho = BigNumber.ZERO;
+requiresGameVersion("1.4.33");
 
-// upgrades
+// ===== METADATA =====
+theory.name = "Log Product Growth";
+theory.description = "A theory based on logarithmic and product growth.";
+theory.authors = "horchata";
+theory.version = 1;
+
+// ===== CURRENCY =====
+let currency = theory.createCurrency();
+
+// ===== VARIABLES =====
 let c1, c2;
 
-theory.createCurrency();
-
-theory.primaryEquation = "\\dot{\\rho} = \\log(1+\\rho)(1 + c_1)(1 + c_2)";
-theory.secondaryEquation = "c_1 = 2^{x_1},\\; c_2 = 2^{x_2}";
-theory.description = "A logarithmic–product growth theory.";
-theory.name = "Log Product Growth";
-
 // ===== UPGRADES =====
-c1 = theory.createUpgrade(0, new ExponentialCost(10, Math.log2(2)));
+c1 = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
 c1.getDescription = (_) => "c_1 = 2^{x_1}";
-c1.getInfo = (_) => "Increases first product term";
-c1.level = 0;
+c1.getInfo = (_) => "c_1 = 2^{x_1}";
 
-c2 = theory.createUpgrade(1, new ExponentialCost(100, Math.log2(2)));
-c2.getDescription = (_) => "c_2 = 2^{x_2}";
-c2.getInfo = (_) => "Increases second product term";
-c2.level = 0;
+c2 = theory.createUpgrade(1, currency, new ExponentialCost(100, Math.log2(3)));
+c2.getDescription = (_) => "c_2 = 3^{x_2}";
+c2.getInfo = (_) => "c_2 = 3^{x_2}";
 
-// ===== TICK FUNCTION =====
+// ===== MILESTONES =====
+let mLog = theory.createMilestoneUpgrade(0, 1);
+mLog.description = "Unlock logarithmic growth";
+
+let mLogPow = theory.createMilestoneUpgrade(1, 2);
+mLogPow.description = "Raise logarithm to a power";
+
+// ===== EQUATIONS =====
+theory.primaryEquationHeight = 60;
+
+theory.getPrimaryEquation = () => {
+    let eq = "\\dot{\\rho} = (2^{x_1} 3^{x_2})";
+    if (mLog.level > 0) eq += "\\log(2^{x_1} 3^{x_2})";
+    if (mLogPow.level > 0) eq += "^{1.25}";
+    return eq;
+};
+
+theory.secondaryEquation = "c_1 = 2^{x_1},\\; c_2 = 3^{x_2}";
+
+// ===== GRAPH =====
+theory.graphTitle = "ρ Growth";
+theory.graphXAxisLabel = "Time";
+theory.graphYAxisLabel = "ρ";
+
+// ===== TICK =====
 theory.tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime) * BigNumber.from(multiplier);
 
     let c1val = BigNumber.TWO.pow(c1.level);
-    let c2val = BigNumber.TWO.pow(c2.level);
+    let c2val = BigNumber.from(3).pow(c2.level);
 
-    let logTerm = BigNumber.from(Math.log(1 + rho.toNumber()));
+    let prod = c1val * c2val;
+    let growth = prod;
 
-    let rhoDot =
-        logTerm *
-        (BigNumber.ONE + c1val) *
-        (BigNumber.ONE + c2val);
+    if (mLog.level > 0) {
+        let logTerm = BigNumber.from(Math.log(prod.toNumber() + 1));
+        growth = growth * logTerm;
+    }
 
-    rho += rhoDot * dt;
+    if (mLogPow.level > 0) {
+        growth = BigNumber.from(Math.pow(growth.toNumber(), 1.25));
+    }
+
+    currency.value += growth * dt;
 };
-
-// ===== SAVE / LOAD =====
-theory.getPrimaryEquation = () => theory.primaryEquation;
-theory.getSecondaryEquation = () => theory.secondaryEquation;
