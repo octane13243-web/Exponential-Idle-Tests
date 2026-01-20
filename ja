@@ -1,11 +1,10 @@
-import { ExponentialCost } from "./api/Costs";
+import { ExponentialCost, FirstFreeCost } from "./api/Costs";
 import { BigNumber, parseBigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
-import { Utils } from "./api/Utils";
 
 var id = "log_base";
 var name = "Logarithmic Base";
-var description = "ρ grows slowly based on c₁. Simple and clean.";
+var description = "ρ grows slowly based on c₁ using log base 10.";
 var authors = "horchata";
 var version = 1;
 
@@ -17,8 +16,8 @@ var c1;
 var init = () => {
     currency = theory.createCurrency();
 
-    // c1 upgrade
-    c1 = theory.createUpgrade(0, currency, new ExponentialCost(10, Math.log2(2)));
+    // c1 upgrade, first free
+    c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(10, Math.log2(2))));
     c1.getDescription = (_) => "c₁ = " + c1.level;
     c1.getInfo = (_) => "c₁ = " + c1.level;
 };
@@ -27,7 +26,7 @@ var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
 
     if(c1.level > 0) {
-        rho = BigNumber.from(Math.log(c1.level)/10);
+        rho = BigNumber.from(Math.log10(c1.level)/10); // log base 10
     }
 
     currency.value += rho * dt;
@@ -35,7 +34,7 @@ var tick = (elapsedTime, multiplier) => {
 
 var getPrimaryEquation = () => {
     theory.primaryEquationHeight = 50;
-    return "\\rho = \\frac{\\ln(c_1)}{10}";
+    return "\\rho = \\frac{\\log_{10}(c_1)}{10}";
 };
 
 var getInternalState = () => `${c1.level}`;
