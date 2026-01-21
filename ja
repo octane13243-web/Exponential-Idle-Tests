@@ -1,117 +1,75 @@
-// imports
-import { theory } from "./api/Theory";
-import { FirstFreeCost, ExponentialCost } from "./api/Costs";////////////////////////////////////////
+////////////////////////////////////////
 // Custom Theory: Logarithmic Growth //
 ////////////////////////////////////////
 
-// Variables
 var currency;
 var c1;
-var rho = BigNumber.from(0);
+var rho = 0; // ρ
 
-// Permanent Upgrades
 var pubUpgrade, buyAllUpgrade, autoUpgrade;
-
-// Milestones
 var milestone1;
 
-// Initialize theory
 var init = () => {
     currency = theory.createCurrency();
 
-    /////////////////////////////
-    // Upgrades
-    /////////////////////////////
-
     // c₁ Upgrade (free first purchase)
-    c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(2, Math.log2(2))));
+    c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(2, 2)));
     c1.getDescription = (level) => "c₁ = " + (2 ** level).toString();
     c1.getInfo = (level) => "c₁ = " + (2 ** level).toString();
 
-    /////////////////////////////
     // Permanent Upgrades
-    /////////////////////////////
-
-    pubUpgrade = theory.createPublicationUpgrade(0, currency, 1e3);
+    pubUpgrade = theory.createPublicationUpgrade(0, currency, 1000);
     buyAllUpgrade = theory.createBuyAllUpgrade(1, currency, 1e5);
     autoUpgrade = theory.createAutoBuyerUpgrade(2, currency, 1e7);
 
-    /////////////////////////////
-    // Milestones
-    /////////////////////////////
-
+    // Milestone at 1000ρ
     milestone1 = theory.createMilestoneUpgrade(0, 1);
     milestone1.getDescription = (_) => "Unlock bonus at 1000ρ";
     milestone1.getInfo = (_) => "Rewards unlocked";
     milestone1.canBeRefunded = (_) => false;
 
-    /////////////////////////////
-    // Initial availability
-    /////////////////////////////
-
     updateAvailability();
 };
 
-/////////////////////////////
-// Tick (update per frame)
-/////////////////////////////
 var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
+    let dt = elapsedTime * multiplier;
 
     if (c1.level > 0) {
-        // Primary equation: ρ = 2 * log10(c₁)/5
-        let delta = BigNumber.from((2 * Math.log10(2 ** c1.level) / 5) * dt.toNumber());
-        rho = rho.add(delta);
+        // ρ = 2 * log10(c₁)/5 * dt
+        let delta = 2 * Math.log10(Math.pow(2, c1.level)) / 5 * dt;
+        rho += delta;
         currency.value = rho;
     }
 
-    /////////////////////////////
     // Auto-buy logic
-    /////////////////////////////
     if (autoUpgrade.level > 0) {
-        while (currency.value.gte(c1.getNextCost())) {
-            let cost = c1.getNextCost();
-            c1.level += 1;
-            currency.value = currency.value.sub(cost);
+        while (currency.value >= c1.getNextCost()) {
+            currency.value -= c1.getNextCost();
+            c1.level++;
         }
     }
 
-    /////////////////////////////
-    // Buy All logic
-    /////////////////////////////
+    // Buy-all logic
     if (buyAllUpgrade.level > 0) {
-        while (currency.value.gte(c1.getNextCost())) {
-            let cost = c1.getNextCost();
-            c1.level += 1;
-            currency.value = currency.value.sub(cost);
+        while (currency.value >= c1.getNextCost()) {
+            currency.value -= c1.getNextCost();
+            c1.level++;
         }
     }
 
     updateAvailability();
 };
 
-/////////////////////////////
-// Milestone availability
-/////////////////////////////
 var updateAvailability = () => {
-    milestone1.isAvailable = rho.gte(1000);
+    milestone1.isAvailable = rho >= 1000;
 };
 
-/////////////////////////////
-// Primary equation display
-/////////////////////////////
 var getPrimaryEquation = () => "\\rho = 2 \\cdot \\frac{\\log_{10}(c₁)}{5}";
 
-/////////////////////////////
-// Save/load state
-/////////////////////////////
-var getInternalState = () => rho.toString();
+var getInternalState = () => rho;
 var setInternalState = (state) => {
-    rho = BigNumber.from(state);
+    rho = state;
     updateAvailability();
 };
 
-/////////////////////////////
-// Initialize theory
-/////////////////////////////
 init();
