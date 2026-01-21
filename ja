@@ -1,87 +1,48 @@
-var id = "log_c1_theory";
-var name = "Logarithmic Growth";
-var description = "A simple theory showing rho growth via a logarithmic function of c₁.";
-var authors = "Horchata";
+var id = "CustomRho";
+var name = "Custom Rho Theory";
+var description = "A simple parser-friendly theory with one upgrade.";
+var authors = "horchata";
 var version = 1;
-var releaseOrder = "1";
-
-requiresGameVersion("1.4.33");
 
 var currency;
-var rho = 0;
-
-// Upgrades
 var c1;
 
-// Permanent Upgrades
-var pub, buyAll, auto;
+var rho; // main currency
+var rhoDisplay;
 
-// Milestones
-var milestone1000;
+var milestones = [];
 
-// Initialization
 var init = () => {
     currency = theory.createCurrency();
 
-    // c1 upgrade (first free)
-    c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(2, Math.log2(2))));
-    c1.getDescription = (_) => `c_{1} = ${2 ** c1.level}`;
-    c1.getInfo = (_) => `c_{1} = ${2 ** (c1.level + 1)}`;
+    // Upgrade c1
+    c1 = theory.createUpgrade(0, currency, "c₁", "Increase rho growth", 2);
+    c1.level = 0;
 
-    // Permanent upgrades
-    pub = theory.createPublicationUpgrade(0, currency, 1e6);
-    buyAll = theory.createBuyAllUpgrade(1, currency, 1e8);
-    auto = theory.createAutoBuyerUpgrade(2, currency, 1e10);
-
-    // Milestone at rho >= 1000
-    milestone1000 = theory.createMilestoneUpgrade(0, 1);
-    milestone1000.getDescription = (_) => "Milestone: Unlocks bonus at ρ >= 1000";
-    milestone1000.getInfo = (_) => "Reward: TBD";
-    milestone1000.isAvailable = () => rho >= 1000;
-
-    updateAvailability();
+    // Milestone at 1000ρ
+    milestones.push(theory.createMilestone(1000, "Reach 1000ρ", () => {}));
 };
 
-// Update upgrade availability
-var updateAvailability = () => {
-    c1.isAvailable = true;
-    milestone1000.isAvailable = () => rho >= 1000;
-};
-
-// Tick function
 var tick = (elapsedTime, multiplier) => {
-    let dt = elapsedTime * multiplier;
+    let dt = BigNumber.from(elapsedTime * multiplier);
 
-    if (c1.level > 0) {
-        let c1Val = 2 ** (c1.level - 1); // start at 2
-        let increment = 2 * (Math.log10(c1Val) / 5); // log base 10
-        rho += increment * dt;
-        currency.value = rho; // update engine
-    }
-
-    if (mainEquationPressed) theory.invalidatePrimaryEquation();
+    // ρ accumulation: ρ += dt * 2 * (log(c1)/5)
+    currency.value += dt * 2 * (Math.log(c1.level + 2) / 5);
 };
 
-// Primary equation
-var mainEquationPressed = false;
 var getPrimaryEquation = () => {
-    theory.primaryEquationHeight = 30;
-    return `\\rho = 2 \\cdot \\frac{\\log_{10}(c_{1})}{5}`;
+    return "ρ = 2 * (log(c₁)/5)";
 };
 
-// Internal state for save/load
-var getInternalState = () => `${rho} ${c1.level}`;
-var setInternalState = (state) => {
-    let values = state.split(" ");
-    if (values.length > 0) rho = parseFloat(values[0]);
-    if (values.length > 1) c1.level = parseInt(values[1]);
+var canBuyUpgrade = (upgrade) => true;
+
+var buyUpgrade = (upgrade) => {
+    if (upgrade == c1) upgrade.level += 1;
 };
 
-// Post-publication reset
-var postPublish = () => {
-    rho = 0;
-    c1.level = 1;
-    updateAvailability();
+var getUpgradeCost = (upgrade) => {
+    if (upgrade == c1) return upgrade.level == 0 ? 0 : 10 * Math.pow(2, upgrade.level - 1);
+    return Infinity;
 };
 
-init();
+var publicationMultiplier = 1; // B option, no extra scaling
