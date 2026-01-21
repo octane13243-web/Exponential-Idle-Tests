@@ -1,49 +1,49 @@
-var id = "CustomRho";
-var name = "Custom Rho Theory";
-var description = "A simple parser-friendly theory with one upgrade.";
+var id = "basic_rho";
+var name = "Basic Rho";
+var description = "ρ = 2·log(c₁)/5";
 var authors = "horchata";
 var version = 1;
 
 var currency;
 var c1;
 
-var milestones = [];
-
 var init = () => {
-    // Create main currency ρ
+    // Create currency
     currency = theory.createCurrency();
-    currency.value = 0;
 
-    // Upgrade c₁ (free first time)
-    c1 = theory.createUpgrade(0, currency, "c₁", "Increase ρ growth", 2);
-    c1.level = 0;
+    // Create upgrade c₁
+    c1 = theory.createUpgrade(
+        0,
+        currency,
+        BigNumber.from(1),
+        BigNumber.from(10)
+    );
 
-    // Milestone at 1000ρ
-    milestones.push(theory.createMilestone(1000, "Reach 1000ρ", () => {}));
+    c1.getDescription = () => "c₁";
+    c1.getInfo = () => "Increases ρ growth";
+
+    // Free first purchase
+    c1.cost = {
+        getCost: level => level == 0 ? BigNumber.ZERO : BigNumber.from(10)
+    };
 };
 
 var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime) * BigNumber.from(multiplier);
+    let dt = elapsedTime * multiplier;
 
-    // Only accumulate if c1 is bought (level >= 1)
-    if (c1.level >= 1) {
-        currency.value += dt * 2 * (Math.log(c1.level + 1) / 5);
+    if (c1.level > 0) {
+        let c1Value = Math.pow(2, c1.level); // starts at 2
+        let gain = 2 * (Math.log10(c1Value) / 5);
+
+        currency.value = currency.value + gain * dt;
     }
 };
 
 var getPrimaryEquation = () => {
-    return "ρ = 2 * (log(c₁)/5)";
+    return "ρ = 2·log(c₁)/5";
 };
 
-var canBuyUpgrade = (upgrade) => true;
-
-var buyUpgrade = (upgrade) => {
-    if (upgrade == c1) upgrade.level += 1;
-};
-
-var getUpgradeCost = (upgrade) => {
-    if (upgrade == c1) return upgrade.level == 0 ? 0 : 10 * Math.pow(2, upgrade.level - 1);
-    return Infinity;
-};
-
-var publicationMultiplier = 1; // No extra scaling
+var getSecondaryEquation = () => "";
+var getPublicationMultiplier = () => BigNumber.ONE;
+var getPublicationMultiplierFormula = () => "1";
+var getTau = () => currency.value;
