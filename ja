@@ -1,10 +1,6 @@
-import { theory } from "./api/Theory";
-import { BigNumber, parseBigNumber } from "./api/BigNumber";
-import { ExponentialCost, FirstFreeCost } from "./api/Costs";
-
 var id = "log_c1_theory";
-var name = "Log C1 Theory";
-var description = "ρ grows based on log(c1) only after purchase.";
+var name = "Logarithmic Growth";
+var description = "A simple theory showing rho growth via a logarithmic function of c₁.";
 var authors = "Horchata";
 var version = 1;
 var releaseOrder = "1";
@@ -12,48 +8,80 @@ var releaseOrder = "1";
 requiresGameVersion("1.4.33");
 
 var currency;
-var rho = BigNumber.ZERO;
-var c1;
-var milestone1;
+var rho = 0;
 
+// Upgrades
+var c1;
+
+// Permanent Upgrades
+var pub, buyAll, auto;
+
+// Milestones
+var milestone1000;
+
+// Initialization
 var init = () => {
     currency = theory.createCurrency();
 
     // c1 upgrade (first free)
-    c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(2, Math.log2(5))));
-    c1.getDescription = (_) => "c₁"; // subscript 1
-    c1.getInfo = (_) => "Increase c₁";
+    c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(2, Math.log2(2))));
+    c1.getDescription = (_) => `c_{1} = ${2 ** c1.level}`;
+    c1.getInfo = (_) => `c_{1} = ${2 ** (c1.level + 1)}`;
 
-    // Milestone at 1000ρ
-    milestone1 = theory.createMilestoneUpgrade(0, 1);
-    milestone1.getDescription = (_) => "ρ reached 1000";
-    milestone1.getInfo = (_) => "Unlock reward";
-    milestone1.boughtOrRefunded = (_) => {};
+    // Permanent upgrades
+    pub = theory.createPublicationUpgrade(0, currency, 1e6);
+    buyAll = theory.createBuyAllUpgrade(1, currency, 1e8);
+    auto = theory.createAutoBuyerUpgrade(2, currency, 1e10);
+
+    // Milestone at rho >= 1000
+    milestone1000 = theory.createMilestoneUpgrade(0, 1);
+    milestone1000.getDescription = (_) => "Milestone: Unlocks bonus at ρ >= 1000";
+    milestone1000.getInfo = (_) => "Reward: TBD";
+    milestone1000.isAvailable = () => rho >= 1000;
+
+    updateAvailability();
 };
 
+// Update upgrade availability
+var updateAvailability = () => {
+    c1.isAvailable = true;
+    milestone1000.isAvailable = () => rho >= 1000;
+};
+
+// Tick function
 var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime * multiplier);
+    let dt = elapsedTime * multiplier;
 
     if (c1.level > 0) {
-        // Value of c1
-        let c1Val = BigNumber.from(2).pow(c1.level - 1).add(0); // start at 2
-        let increment = BigNumber.from(2 * (Math.log(c1Val.toNumber()) / 5));
-        rho = rho.add(increment.mul(dt));
-        currency.value = rho;
+        let c1Val = 2 ** (c1.level - 1); // start at 2
+        let increment = 2 * (Math.log10(c1Val) / 5); // log base 10
+        rho += increment * dt;
+        currency.value = rho; // update engine
     }
+
+    if (mainEquationPressed) theory.invalidatePrimaryEquation();
 };
 
+// Primary equation
+var mainEquationPressed = false;
 var getPrimaryEquation = () => {
-    theory.primaryEquationHeight = 40; // enough for full display
-    return "\\rho = 2 \\cdot \\frac{\\log(c₁)}{5}";
+    theory.primaryEquationHeight = 30;
+    return `\\rho = 2 \\cdot \\frac{\\log_{10}(c_{1})}{5}`;
 };
 
-var getSecondaryEquation = () => "";
-var getTertiaryEquation = () => "";
-
-var getInternalState = () => rho.toString();
+// Internal state for save/load
+var getInternalState = () => `${rho} ${c1.level}`;
 var setInternalState = (state) => {
-    rho = parseBigNumber(state);
+    let values = state.split(" ");
+    if (values.length > 0) rho = parseFloat(values[0]);
+    if (values.length > 1) c1.level = parseInt(values[1]);
+};
+
+// Post-publication reset
+var postPublish = () => {
+    rho = 0;
+    c1.level = 1;
+    updateAvailability();
 };
 
 init();
