@@ -1,5 +1,4 @@
 import { ExponentialCost, FirstFreeCost } from "./api/Costs";
-import { Localization } from "./api/Localization";
 import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
@@ -14,10 +13,8 @@ var currency;
 var c1;
 
 function init() {
-    // ✅ THIS WAS THE BUG
     currency = theory.createCurrency();
 
-    // c1 upgrade
     c1 = theory.createUpgrade(
         0,
         currency,
@@ -31,17 +28,12 @@ function init() {
             "c1 = " + getC1Value(c1.level + amount)
         );
 
-    // equations
-    theory.primaryEquationHeight = 50;
-    theory.primaryEquation = "\\rho = 2 \\cdot \\frac{\\log_{10}(c1)}{5}";
-    theory.secondaryEquation = "";
-    theory.tertiaryEquation = "";
-
-    theory.invalidatePrimaryEquation();
+    // ✅ SAFE equation setters
+    theory.setPrimaryEquation("\\rho = 2 \\cdot \\frac{\\log_{10}(c1)}{5}");
+    theory.setEquationHeight(50);
 }
 
 function getC1Value(level) {
-    // starts at 2 so log10(c1) ≠ 0
     return 2 + level;
 }
 
@@ -51,9 +43,7 @@ function tick(elapsedTime, multiplier) {
     let dt = BigNumber.from(elapsedTime * multiplier);
 
     let c1Value = getC1Value(c1.level);
-    let logTerm = Math.log10(c1Value);
-
-    let rhoDot = 2 * (logTerm / 5);
+    let rhoDot = 2 * (Math.log10(c1Value) / 5);
 
     currency.value += dt * rhoDot;
 }
