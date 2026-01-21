@@ -4,7 +4,7 @@
 
 var currency;
 var c1;
-var rho = BigNumber.zero;
+var rho = 2; // start at 2 so log10(c1) is nonzero
 
 var pubUpgrade, buyAllUpgrade, autoUpgrade;
 var milestone1;
@@ -32,28 +32,27 @@ var init = () => {
 };
 
 var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
+    let dt = elapsedTime * multiplier;
 
     if (c1.level > 0) {
-        // ρ = 2 * log(c₁)/5 * dt using theory helpers
-        let logc = c1.level.log10(); // log10(c1 level)
-        let delta = logc.mul(2).div(5).mul(dt);
-        rho = rho.add(delta);
+        // rho = 2 * log10(c1)/5 * dt using normal JS math
+        let delta = (2 * Math.log10(c1.level + 2) / 5) * dt; 
+        rho += delta;
         currency.value = rho;
     }
 
     // Auto-buy logic
     if (autoUpgrade.level > 0) {
-        while (currency.value.gte(c1.getNextCost())) {
-            currency.value = currency.value.sub(c1.getNextCost());
+        while (currency.value >= c1.getNextCost()) {
+            currency.value -= c1.getNextCost();
             c1.level++;
         }
     }
 
     // Buy-all logic
     if (buyAllUpgrade.level > 0) {
-        while (currency.value.gte(c1.getNextCost())) {
-            currency.value = currency.value.sub(c1.getNextCost());
+        while (currency.value >= c1.getNextCost()) {
+            currency.value -= c1.getNextCost();
             c1.level++;
         }
     }
@@ -62,7 +61,7 @@ var tick = (elapsedTime, multiplier) => {
 };
 
 var updateAvailability = () => {
-    milestone1.isAvailable = rho.gte(1000);
+    milestone1.isAvailable = rho >= 1000;
 };
 
 var getPrimaryEquation = () => "\\rho = 2 \\cdot \\frac{\\log_{10}(c_1)}{5}";
