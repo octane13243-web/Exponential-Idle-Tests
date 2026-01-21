@@ -13,12 +13,11 @@ var version = 1;
 var currency;
 var c1;
 
-theory.createCurrency();
-
 function init() {
-    currency = theory.currency;
+    // ✅ THIS WAS THE BUG
+    currency = theory.createCurrency();
 
-    // c1 upgrade (first purchase free)
+    // c1 upgrade
     c1 = theory.createUpgrade(
         0,
         currency,
@@ -32,7 +31,7 @@ function init() {
             "c1 = " + getC1Value(c1.level + amount)
         );
 
-    // Equation display
+    // equations
     theory.primaryEquationHeight = 50;
     theory.primaryEquation = "\\rho = 2 \\cdot \\frac{\\log_{10}(c1)}{5}";
     theory.secondaryEquation = "";
@@ -42,7 +41,7 @@ function init() {
 }
 
 function getC1Value(level) {
-    // starts at 2, increases linearly
+    // starts at 2 so log10(c1) ≠ 0
     return 2 + level;
 }
 
