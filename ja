@@ -1,11 +1,10 @@
 import { theory } from "./api/Theory";
 import { BigNumber, parseBigNumber } from "./api/BigNumber";
 import { ExponentialCost, FirstFreeCost } from "./api/Costs";
-import { Utils } from "./api/Utils";
 
 var id = "log_c1_theory";
 var name = "Log C1 Theory";
-var description = "A minimal theory using log(c1) as the main growth mechanic.";
+var description = "ρ grows based on log(c1) only after purchase.";
 var authors = "Horchata";
 var version = 1;
 var releaseOrder = "1";
@@ -15,7 +14,6 @@ requiresGameVersion("1.4.33");
 var currency;
 var rho = BigNumber.ZERO;
 var c1;
-
 var milestone1;
 
 var init = () => {
@@ -23,8 +21,8 @@ var init = () => {
 
     // c1 upgrade (first free)
     c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(2, Math.log2(5))));
-    c1.getDescription = (_) => "c1";
-    c1.getInfo = (_) => "Increase c1";
+    c1.getDescription = (_) => "c₁"; // subscript 1
+    c1.getInfo = (_) => "Increase c₁";
 
     // Milestone at 1000ρ
     milestone1 = theory.createMilestoneUpgrade(0, 1);
@@ -37,15 +35,17 @@ var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
 
     if (c1.level > 0) {
-        let c1Val = BigNumber.from(2).pow(c1.level - 1).add(1); // starting at 2, increasing
-        rho = rho.add(BigNumber.from(2).mul(Math.log(c1Val.toNumber())/5).mul(dt));
+        // Value of c1
+        let c1Val = BigNumber.from(2).pow(c1.level - 1).add(0); // start at 2
+        let increment = BigNumber.from(2 * (Math.log(c1Val.toNumber()) / 5));
+        rho = rho.add(increment.mul(dt));
         currency.value = rho;
     }
 };
 
 var getPrimaryEquation = () => {
-    theory.primaryEquationHeight = 20;
-    return "\\rho = 2 \\cdot \\frac{\\log(c1)}{5}";
+    theory.primaryEquationHeight = 40; // enough for full display
+    return "\\rho = 2 \\cdot \\frac{\\log(c₁)}{5}";
 };
 
 var getSecondaryEquation = () => "";
