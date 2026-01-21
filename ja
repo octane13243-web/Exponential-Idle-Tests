@@ -7,16 +7,15 @@ var version = 1;
 var currency;
 var c1;
 
-var rho; // main currency
-var rhoDisplay;
-
 var milestones = [];
 
 var init = () => {
+    // Create main currency ρ
     currency = theory.createCurrency();
+    currency.value = 0;
 
-    // Upgrade c1
-    c1 = theory.createUpgrade(0, currency, "c₁", "Increase rho growth", 2);
+    // Upgrade c₁ (free first time)
+    c1 = theory.createUpgrade(0, currency, "c₁", "Increase ρ growth", 2);
     c1.level = 0;
 
     // Milestone at 1000ρ
@@ -24,10 +23,12 @@ var init = () => {
 };
 
 var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime * multiplier);
+    let dt = BigNumber.from(elapsedTime) * BigNumber.from(multiplier);
 
-    // ρ accumulation: ρ += dt * 2 * (log(c1)/5)
-    currency.value += dt * 2 * (Math.log(c1.level + 2) / 5);
+    // Only accumulate if c1 is bought (level >= 1)
+    if (c1.level >= 1) {
+        currency.value += dt * 2 * (Math.log(c1.level + 1) / 5);
+    }
 };
 
 var getPrimaryEquation = () => {
@@ -45,4 +46,4 @@ var getUpgradeCost = (upgrade) => {
     return Infinity;
 };
 
-var publicationMultiplier = 1; // B option, no extra scaling
+var publicationMultiplier = 1; // No extra scaling
