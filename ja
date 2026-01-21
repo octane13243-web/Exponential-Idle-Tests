@@ -1,10 +1,10 @@
-////////////////////////////////////////
-// Custom Theory: Logarithmic Growth //
-////////////////////////////////////////
+//////////////////////////////
+// Custom Theory: Logarithmic Growth
+//////////////////////////////
 
 var currency;
 var c1;
-var rho = 0; // ρ
+var rho = BigNumber.zero;
 
 var pubUpgrade, buyAllUpgrade, autoUpgrade;
 var milestone1;
@@ -14,8 +14,8 @@ var init = () => {
 
     // c₁ Upgrade (free first purchase)
     c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(2, 2)));
-    c1.getDescription = (level) => "c₁ = " + (2 ** level).toString();
-    c1.getInfo = (level) => "c₁ = " + (2 ** level).toString();
+    c1.getDescription = (level) => "c₁ = " + theory.format(level, 0);
+    c1.getInfo = (level) => "c₁ = " + theory.format(level, 0);
 
     // Permanent Upgrades
     pubUpgrade = theory.createPublicationUpgrade(0, currency, 1000);
@@ -32,27 +32,28 @@ var init = () => {
 };
 
 var tick = (elapsedTime, multiplier) => {
-    let dt = elapsedTime * multiplier;
+    let dt = BigNumber.from(elapsedTime).mul(BigNumber.from(multiplier));
 
     if (c1.level > 0) {
-        // ρ = 2 * log10(c₁)/5 * dt
-        let delta = 2 * Math.log10(Math.pow(2, c1.level)) / 5 * dt;
-        rho += delta;
+        // ρ = 2 * log(c₁)/5 * dt using theory helpers
+        let logc = c1.level.log10(); // log10(c1 level)
+        let delta = logc.mul(2).div(5).mul(dt);
+        rho = rho.add(delta);
         currency.value = rho;
     }
 
     // Auto-buy logic
     if (autoUpgrade.level > 0) {
-        while (currency.value >= c1.getNextCost()) {
-            currency.value -= c1.getNextCost();
+        while (currency.value.gte(c1.getNextCost())) {
+            currency.value = currency.value.sub(c1.getNextCost());
             c1.level++;
         }
     }
 
     // Buy-all logic
     if (buyAllUpgrade.level > 0) {
-        while (currency.value >= c1.getNextCost()) {
-            currency.value -= c1.getNextCost();
+        while (currency.value.gte(c1.getNextCost())) {
+            currency.value = currency.value.sub(c1.getNextCost());
             c1.level++;
         }
     }
@@ -61,10 +62,10 @@ var tick = (elapsedTime, multiplier) => {
 };
 
 var updateAvailability = () => {
-    milestone1.isAvailable = rho >= 1000;
+    milestone1.isAvailable = rho.gte(1000);
 };
 
-var getPrimaryEquation = () => "\\rho = 2 \\cdot \\frac{\\log_{10}(c₁)}{5}";
+var getPrimaryEquation = () => "\\rho = 2 \\cdot \\frac{\\log_{10}(c_1)}{5}";
 
 var getInternalState = () => rho;
 var setInternalState = (state) => {
