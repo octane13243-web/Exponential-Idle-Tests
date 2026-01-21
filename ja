@@ -1,61 +1,77 @@
-import { theory } from "./api/Theory";
 import { BigNumber } from "./api/BigNumber";
+import { theory } from "./api/Theory";
 import { FirstFreeCost, ExponentialCost } from "./api/Costs";
 import { Utils } from "./api/Utils";
 
-var id = "simple_backbone";
-var name = "Simple Backbone";
-var description = "ρ grows based on c₁, with a milestone at 1000ρ";
-var authors = "Horchata";
+var id = "log_base_fixed";
+var name = "Logarithmic Base Fixed";
+var description = "ρ grows based on log10(c₁)/10, starting at 2, with milestone.";
+var authors = "horchata";
 var version = 1;
 
-requiresGameVersion("1.4.40");
+requiresGameVersion("1.4.33");
 
-var currency, c1, milestone1000;
+var currency;
+var c1;
 var rho = BigNumber.ZERO;
-var c1Unlocked = false;
+var milestone1000;
 
 var init = () => {
-    currency = theory.createCurrency();
+  currency = theory.createCurrency();
 
-    // Upgrade: c1
+  // c₁ upgrade (first free)
+  {
+    let getDesc = (level) => "\\text{c}_1 = " + BigNumber.TWO.pow(level).toString(0);
+    let getInfo = (level) => "\\text{c}_1 = " + BigNumber.TWO.pow(level).toString(0);
+
     c1 = theory.createUpgrade(
-        0, 
-        currency, 
-        new FirstFreeCost(new ExponentialCost(2, Math.log2(2)))
+      0,
+      currency,
+      new FirstFreeCost(new ExponentialCost(2, Math.log2(2)))
     );
-    c1.getDescription = (_) => "c_1 = " + Utils.getMath(c1.level + 2);
-    c1.getInfo = (_) => "c_1 = " + Utils.getMath(c1.level + 2);
+    c1.getDescription = (_) => Utils.getMath(getDesc(c1.level));
+    c1.getInfo = (_) => Utils.getMathTo(getInfo(c1.level), getInfo(c1.level + 1));
+  }
 
-    // Milestone at 1000ρ
-    milestone1000 = theory.createMilestoneUpgrade(0, 1);
-    milestone1000.getDescription = (_) => "Unlock special effect at ρ = 1000";
-    milestone1000.getInfo = (_) => "When ρ ≥ 1000, this milestone activates";
-    
-    updateAvailability();
-};
+  // Milestone at 1000ρ
+  milestone1000 = theory.createMilestoneUpgrade(0, 1);
+  milestone1000.getDescription = (_) => "Unlock at \\rho \\ge 1000";
+  milestone1000.getInfo = (_) => "Activate milestone when \\rho reaches 1000";
+  milestone1000.canBeRefunded = (_) => false;
 
-var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime * multiplier);
-
-    if(c1.level > 0) { // Only accumulates after c1 bought
-        let c1val = BigNumber.from(c1.level + 2);
-        rho = rho.add(c1val.multiply(dt));
-    }
-
-    currency.value = rho;
-
-    updateAvailability();
+  updateAvailability();
 };
 
 var updateAvailability = () => {
-    // milestone available when ρ ≥ 1000
-    milestone1000.isAvailable = rho.compareTo(BigNumber.from(1000)) >= 0;
+  milestone1000.isAvailable = (rho.value >= BigNumber.from(1000));
+};
+
+var tick = (elapsedTime, multiplier) => {
+  let dt = BigNumber.from(elapsedTime * multiplier);
+
+  if (c1.level > 0) {
+    // Start at 2, so power = (level+1)
+    let c1val = BigNumber.TWO.pow(c1.level);
+    // Only compute growth if c1val > 1
+    let logValue = Math.log10(c1val.toNumber()) / 10;
+    let delta = BigNumber.from(logValue) * dt;
+    rho = BigNumber.from(rho.value + delta);
+    currency.value = BigNumber.from(currency.value + delta);
+  }
+
+  updateAvailability();
+  theory.invalidatePrimaryEquation();
 };
 
 var getPrimaryEquation = () => {
-    theory.primaryEquationHeight = 30;
-    return "\\dot{\\rho} = c_1";
+  theory.primaryEquationHeight = 50;
+  return "\\rho = \\frac{\\log_{10}(c_1)}{10}";
+};
+
+var getInternalState = () => rho.toString();
+var setInternalState = (state) => {
+  rho = BigNumber.from(state);
+  updateAvailability();
 };
 
 init();
