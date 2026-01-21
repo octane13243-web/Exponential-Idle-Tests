@@ -1,103 +1,61 @@
-import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
-import { ExponentialCost, FirstFreeCost } from "./api/Costs";
+import { BigNumber } from "./api/BigNumber";
+import { FirstFreeCost, ExponentialCost } from "./api/Costs";
 import { Utils } from "./api/Utils";
 
-var id = "complex_base";
-var name = "Complex Base Equation";
-var description = "A simple base to experiment with upgrades and accumulation.";
-var authors = "horchata";
+var id = "simple_backbone";
+var name = "Simple Backbone";
+var description = "ρ grows based on c₁, with a milestone at 1000ρ";
+var authors = "Horchata";
 var version = 1;
 
-requiresGameVersion("1.4.33");
+requiresGameVersion("1.4.40");
 
+var currency, c1, milestone1000;
 var rho = BigNumber.ZERO;
-var mainEquationPressed = false;
-
-// Upgrades
-var c1, c2;
-
-// Milestone
-var milestone1000;
-
-// Currency
-var currency;
+var c1Unlocked = false;
 
 var init = () => {
     currency = theory.createCurrency();
 
-    // --- Upgrade c1 ---
-    {
-        let getDesc = (level) => "c_{1} = " + BigNumber.TWO.pow(level).toString(0);
-        let getInfo = (level) => "c_{1} = " + BigNumber.TWO.pow(level).toString(0);
+    // Upgrade: c1
+    c1 = theory.createUpgrade(
+        0, 
+        currency, 
+        new FirstFreeCost(new ExponentialCost(2, Math.log2(2)))
+    );
+    c1.getDescription = (_) => "c_1 = " + Utils.getMath(c1.level + 2);
+    c1.getInfo = (_) => "c_1 = " + Utils.getMath(c1.level + 2);
 
-        c1 = theory.createUpgrade(
-            0,
-            currency,
-            new FirstFreeCost(new ExponentialCost(2, Math.log2(2))) // free first
-        );
-        c1.getDescription = (level) => Utils.getMath(getDesc(c1.level));
-        c1.getInfo = (level) => Utils.getMathTo(getInfo(c1.level), getInfo(c1.level + level));
-    }
-
-    // --- Upgrade c2 ---
-    {
-        let getDesc = (level) => "c_{2} = " + BigNumber.TWO.pow(level).toString(0);
-        let getInfo = (level) => "c_{2} = " + BigNumber.TWO.pow(level).toString(0);
-
-        c2 = theory.createUpgrade(
-            1,
-            currency,
-            new ExponentialCost(4, Math.log2(2))
-        );
-        c2.getDescription = (level) => Utils.getMath(getDesc(c2.level));
-        c2.getInfo = (level) => Utils.getMathTo(getInfo(c2.level), getInfo(c2.level + level));
-    }
-
-    // --- Milestone 1000ρ ---
-    {
-        milestone1000 = theory.createMilestoneUpgrade(0, 1);
-        milestone1000.getDescription = (_) => "Unlock new feature at ρ ≥ 1000";
-        milestone1000.getInfo = (_) => "Automatically unlocks at ρ ≥ 1000";
-        milestone1000.boughtOrRefunded = (_) => {};
-    }
-
+    // Milestone at 1000ρ
+    milestone1000 = theory.createMilestoneUpgrade(0, 1);
+    milestone1000.getDescription = (_) => "Unlock special effect at ρ = 1000";
+    milestone1000.getInfo = (_) => "When ρ ≥ 1000, this milestone activates";
+    
     updateAvailability();
 };
 
-// --- Update availability ---
-var updateAvailability = () => {
-    c1.isAvailable = true;
-    c2.isAvailable = true;
-    milestone1000.isAvailable = rho.gte(BigNumber.from(1000));
-};
-
-// --- Tick function ---
 var tick = (elapsedTime, multiplier) => {
-    let dt = BigNumber.from(elapsedTime).times(BigNumber.from(multiplier));
+    let dt = BigNumber.from(elapsedTime * multiplier);
 
-    if (c1.level > 0) {
-        // Only accumulate after buying c1
-        let delta = BigNumber.from(c1.level).times(dt);
-        rho = rho.add(delta);
-        currency.value = currency.value.add(delta);
+    if(c1.level > 0) { // Only accumulates after c1 bought
+        let c1val = BigNumber.from(c1.level + 2);
+        rho = rho.add(c1val.multiply(dt));
     }
 
+    currency.value = rho;
+
     updateAvailability();
-    if (mainEquationPressed) theory.invalidatePrimaryEquation();
 };
 
-// --- Primary equation ---
+var updateAvailability = () => {
+    // milestone available when ρ ≥ 1000
+    milestone1000.isAvailable = rho.compareTo(BigNumber.from(1000)) >= 0;
+};
+
 var getPrimaryEquation = () => {
-    theory.primaryEquationHeight = 40;
-    return "\\rho = c_{1} \\cdot dt";
-};
-
-// --- Internal state save/load ---
-var getInternalState = () => rho.toString();
-var setInternalState = (state) => {
-    rho = BigNumber.from(state);
-    updateAvailability();
+    theory.primaryEquationHeight = 30;
+    return "\\dot{\\rho} = c_1";
 };
 
 init();
