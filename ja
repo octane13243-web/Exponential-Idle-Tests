@@ -1,49 +1,62 @@
-var id = "basic_rho";
-var name = "Basic Rho";
-var description = "ρ = 2·log(c₁)/5";
+import { ExponentialCost, FirstFreeCost } from "./api/Costs";
+import { Localization } from "./api/Localization";
+import { BigNumber } from "./api/BigNumber";
+import { theory } from "./api/Theory";
+import { Utils } from "./api/Utils";
+
+var id = "c1_log_rho";
+var name = "Logarithmic Growth";
+var description = "A simple theory based on logarithmic growth.";
 var authors = "horchata";
 var version = 1;
 
 var currency;
 var c1;
 
-var init = () => {
-    // Create currency
-    currency = theory.createCurrency();
+theory.createCurrency();
 
-    // Create upgrade c₁
+function init() {
+    currency = theory.currency;
+
+    // c1 upgrade (first purchase free)
     c1 = theory.createUpgrade(
         0,
         currency,
-        BigNumber.from(1),
-        BigNumber.from(10)
+        new FirstFreeCost(new ExponentialCost(10, 1.15))
     );
 
-    c1.getDescription = () => "c₁";
-    c1.getInfo = () => "Increases ρ growth";
+    c1.getDescription = (_) => Utils.getMath("c1");
+    c1.getInfo = (amount) =>
+        Utils.getMathTo(
+            "c1 = " + getC1Value(c1.level),
+            "c1 = " + getC1Value(c1.level + amount)
+        );
 
-    // Free first purchase
-    c1.cost = {
-        getCost: level => level == 0 ? BigNumber.ZERO : BigNumber.from(10)
-    };
-};
+    // Equation display
+    theory.primaryEquationHeight = 50;
+    theory.primaryEquation = "\\rho = 2 \\cdot \\frac{\\log_{10}(c1)}{5}";
+    theory.secondaryEquation = "";
+    theory.tertiaryEquation = "";
 
-var tick = (elapsedTime, multiplier) => {
-    let dt = elapsedTime * multiplier;
+    theory.invalidatePrimaryEquation();
+}
 
-    if (c1.level > 0) {
-        let c1Value = Math.pow(2, c1.level); // starts at 2
-        let gain = 2 * (Math.log10(c1Value) / 5);
+function getC1Value(level) {
+    // starts at 2, increases linearly
+    return 2 + level;
+}
 
-        currency.value = currency.value + gain * dt;
-    }
-};
+function tick(elapsedTime, multiplier) {
+    if (c1.level == 0) return;
 
-var getPrimaryEquation = () => {
-    return "ρ = 2·log(c₁)/5";
-};
+    let dt = BigNumber.from(elapsedTime * multiplier);
 
-var getSecondaryEquation = () => "";
-var getPublicationMultiplier = () => BigNumber.ONE;
-var getPublicationMultiplierFormula = () => "1";
-var getTau = () => currency.value;
+    let c1Value = getC1Value(c1.level);
+    let logTerm = Math.log10(c1Value);
+
+    let rhoDot = 2 * (logTerm / 5);
+
+    currency.value += dt * rhoDot;
+}
+
+init();
