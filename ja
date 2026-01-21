@@ -1,51 +1,50 @@
-import { ExponentialCost, FirstFreeCost } from "./api/Costs";
-import { BigNumber } from "./api/BigNumber";
-import { theory } from "./api/Theory";
-import { Utils } from "./api/Utils";
+import { ExponentialCost, LinearCost } from "./api/Costs";
+import { theory, Utils, BigNumber } from "./api/Theory";
+import { Currency } from "./api/Currency";
+import { Variable } from "./api/Variable";
 
-var id = "c1_log_rho";
-var name = "Logarithmic Growth";
-var description = "A simple theory based on logarithmic growth.";
+// --- Theory Metadata ---
+var id = "my_c1_theory";
+var name = "C1 Ascension";
+var description = "A theory where C1 reigns supreme.";
 var authors = "horchata";
 var version = 1;
 
+// --- Variables ---
 var currency;
 var c1;
 
-function init() {
-    currency = theory.createCurrency();
+// --- Create Theory ---
+theory.create(id, name, description, authors, version);
 
-    c1 = theory.createUpgrade(
-        0,
-        currency,
-        new FirstFreeCost(new ExponentialCost(10, 1.15))
-    );
+// --- Currency ---
+currency = theory.createCurrency();
 
-    c1.getDescription = (_) => Utils.getMath("c1");
-    c1.getInfo = (amount) =>
-        Utils.getMathTo(
-            "c1 = " + getC1Value(c1.level),
-            "c1 = " + getC1Value(c1.level + amount)
-        );
+// --- Upgrades ---
+c1 = theory.createUpgrade(0, currency, new ExponentialCost(10, 1.2));
+c1.getDescription = () => "C1";
+c1.getInfo = () => "Main variable increasing rho production";
+c1.bought = (amount) => { c1.level += amount; };
 
-    // ✅ SAFE equation setters
-    theory.setPrimaryEquation("\\rho = 2 \\cdot \\frac{\\log_{10}(c1)}{5}");
-    theory.setEquationHeight(50);
-}
+// --- Tick Function ---
+theory.tick = (elapsedTime, multiplier) => {
+    let dt = elapsedTime * multiplier;
 
-function getC1Value(level) {
-    return 2 + level;
-}
+    // Basic rho growth: rho = (c1+1)^1.5
+    let rhoDot = BigNumber.from(c1.level + 1).pow(1.5);
 
-function tick(elapsedTime, multiplier) {
-    if (c1.level == 0) return;
+    currency.value += rhoDot * dt;
+};
 
-    let dt = BigNumber.from(elapsedTime * multiplier);
+// --- Primary Equation ---
+theory.getPrimaryEquation = () => {
+    return "\\dot{\\rho} = (C1 + 1)^{1.5}";
+};
 
-    let c1Value = getC1Value(c1.level);
-    let rhoDot = 2 * (Math.log10(c1Value) / 5);
-
-    currency.value += dt * rhoDot;
-}
-
-init();
+// --- Publication Multiplier ---
+theory.getPublicationMultiplier = (tau) => {
+    return tau.pow(0.15);
+};
+theory.getPublicationMultiplierFormula = (symbol) => {
+    return symbol + "^{0.15}";
+};
