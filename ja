@@ -24,11 +24,12 @@ theory.tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
 
     // Safe log growth
-    let sVal = BigNumber.from(sigma.level).add(1); // (σ + 1)
-    let logVal = BigNumber.from(Math.log(sVal.toNumber())); // ln(σ+1)
+    let sVal = BigNumber.from(sigma.level).add(1); // σ + 1
+    let logVal = BigNumber.from(Math.log(sVal.toNumber())); // ln(σ + 1)
     let rhoDot = logVal.mul(2).div(5); // 2*(ln(σ+1)/5)
 
-    currency.value = currency.value.add(rhoDot.mul(dt));
+    // Proper accumulation using currency.add()
+    currency.add(rhoDot.mul(dt));
 };
 
 // 5️⃣ Display equation
@@ -46,5 +47,5 @@ milestone1.description = "Boost σ by 1";
 milestone1.info = "σ +1 automatically";
 milestone1.boughtOrRefunded = (_) => {
     sigma.level++;
-    theory.invalidatePrimaryEquation();
+    theory.invalidatePrimaryEquation(); // refresh equation display
 };
