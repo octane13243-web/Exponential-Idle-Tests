@@ -1,36 +1,28 @@
 // ========================================
 // SigmaLogPlusTheory.js
-// Starter Custom Theory with σ only
-// Formula: ρ̇ = 2 * (log(1 + σ)/5)
+// Fixed milestone creation
 // ========================================
 
 // 1️⃣ Theory metadata
 var id = "sigmaLogPlusTheory";
 var name = "Sigma Log+ Theory";
-var description = "Starter theory: rho grows with σ using ρ̇ = 2*(log(1+σ)/5)";
+var description = "ρ̇ = 2 * (log(1 + σ)/5)";
 var authors = "horchata";
 var version = 1;
 
 // 2️⃣ Currency
-var currency = theory.createCurrency(); // main ρ
+var currency = theory.createCurrency();
 
 // 3️⃣ Variable σ
 var sigma = theory.createUpgrade(0, currency, new ExponentialCost(2, 1.5));
 sigma.getDescription = () => "σ";
 sigma.getInfo = () => "Main variable for ρ growth";
 
-// 4️⃣ Tick Function (offline-safe)
+// 4️⃣ Tick function
 theory.tick = (elapsedTime, multiplier) => {
     let dt = elapsedTime * multiplier;
-
-    // Growth formula
     let rhoDot = 2 * (Math.log(1 + sigma.level) / 5);
-
-    // Apply growth
     currency.value += rhoDot * dt;
-
-    // Milestone check
-    checkMilestones();
 };
 
 // 5️⃣ Display equation
@@ -39,21 +31,10 @@ theory.getPrimaryEquation = () => {
 };
 
 // 6️⃣ Publication multiplier
-theory.getPublicationMultiplier = (tau) => {
-    return tau.pow(0.15);
-};
-theory.getPublicationMultiplierFormula = (symbol) => {
-    return symbol + "^{0.15}";
-};
+theory.getPublicationMultiplier = (tau) => tau.pow(0.15);
+theory.getPublicationMultiplierFormula = (symbol) => symbol + "^{0.15}";
 
-// 7️⃣ Milestones
-var milestone1 = theory.createMilestone(5, "Boost σ by 1", "σ +1 automatically");
-var milestone1Unlocked = false;
-
-function checkMilestones() {
-    if(sigma.level >= 5 && !milestone1Unlocked){
-        sigma.level += 1;
-        milestone1Unlocked = true;
-        theory.invalidatePrimaryEquation();
-    }
-}
+// 7️⃣ Milestone (fixed)
+var milestone1 = theory.createMilestoneUpgrade(5, "Boost σ by 1", "σ +1 automatically");
+milestone1.maxLevel = 1; // optional: only triggers once
+milestone1.getEffect = () => sigma.level += 1;
