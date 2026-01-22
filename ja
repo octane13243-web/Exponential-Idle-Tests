@@ -1,41 +1,99 @@
-// 1️⃣ Metadata
-var id = "sigma_log_plus_free";
-var name = "Sigma Log+ Theory Free";
-var description = "ρ̇ = 2·(ln(1 + σ)/5) | σ first buy free";
-var authors = "horchata";
+import { ExponentialCost, FirstFreeCost, CustomCost } from "./api/Costs";
+import { Localization } from "./api/Localization";
+import { parseBigNumber, BigNumber } from "./api/BigNumber";
+import { theory } from "./api/Theory";
+import { Utils } from "./api/Utils";
+
+var id = "my_theory";
+var name = "My Custom Theory";
+var description = "A custom theory for Exponential Idle.";
+var authors = "Your Name";
 var version = 1;
+var releaseOrder = "1";
 
-// 2️⃣ Currency
-var currency = theory.createCurrency();
+requiresGameVersion("1.4.33");
 
-// 3️⃣ Variable σ (first buy free, linear cost)
-var sigma = theory.createUpgrade(0, currency, new FirstFreeCost(new LinearCost(1, 1)));
-sigma.getDescription = (_) => "σ";
-sigma.getInfo = (_) => "Main variable for ρ growth";
+var tauMultiplier = 1;
 
-// 4️⃣ Tick (offline-safe)
-theory.tick = (elapsedTime, multiplier) => {
+// Currency
+var currency;
+
+// Variables
+var q1;
+
+// Internal state
+// No internal state variables
+
+var init = () => {
+    currency = theory.createCurrency();
+
+    ///////////////////
+    // Regular Upgrades
+    // q1
+    {
+        let getDesc = (level) => "q1=" + getQ1(level).toString(0);
+        let getInfo = (level) => "q1=" + getQ1(level).toString(0);
+        q1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(5, 2)));
+        q1.getDescription = (amount) => Utils.getMath(getDesc(q1.level));
+        q1.getInfo = (amount) => Utils.getMathTo(getInfo(q1.level), getInfo(q1.level + amount));
+    }
+
+    /////////////////////
+    // Permanent Upgrades
+    theory.createPublicationUpgrade(0, currency, 1e8);
+    theory.createBuyAllUpgrade(1, currency, 1e15);
+    theory.createAutoBuyerUpgrade(2, currency, 1e25);
+
+    /////////////////////
+    // Milestone Upgrades
+    // No milestones defined
+
+}
+
+var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
-    let sVal = BigNumber.from(sigma.level).add(1); // σ + 1
-    let rhoDot = BigNumber.from(Math.log(sVal.toNumber())).mul(2).div(5); // 2*(ln(σ+1)/5)
-    currency.add(rhoDot.mul(dt)); // proper accumulation
-};
+    let bonus = theory.publicationMultiplier;
+    
+    let vq1 = getQ1(q1.level);
+    
+    // Main equation - customize this based on your theory
+    currency.value += bonus * dt * vq1;
+    
+    theory.invalidateTertiaryEquation();
+}
 
-// 5️⃣ Display equation
-theory.getPrimaryEquation = () => "\\dot{\\rho} = 2 \\cdot \\frac{\\ln(1 + \\sigma)}{5}";
+var getInternalState = () => {
+    return "";
+}
 
-// ✅ Refresh display
-theory.invalidatePrimaryEquation();
+var setInternalState = (state) => {
+    // Restore internal state from string
+}
 
-// 6️⃣ Publication
-theory.getPublicationMultiplier = (tau) => tau.pow(0.15);
-theory.getPublicationMultiplierFormula = (symbol) => symbol + "^{0.15}";
+var postPublish = () => {
+    // Reset values after publish
+}
 
-// 7️⃣ Milestone (modern, safe)
-var milestone1 = theory.createMilestoneUpgrade(5, 1);
-milestone1.description = "Boost σ by 1";
-milestone1.info = "σ +1 automatically";
-milestone1.boughtOrRefunded = (_) => {
-    sigma.level++;
-    theory.invalidatePrimaryEquation();
-};
+var getPrimaryEquation = () => {
+    return "\\dot{\\rho} = q_1 q_2";
+}
+
+var getSecondaryEquation = () => {
+    return theory.latexSymbol + "=\\max\\rho";
+}
+
+var getTertiaryEquation = () => {
+    return "";
+}
+
+var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
+var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
+var getTau = () => currency.value.pow(0.1);
+var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
+
+// Variable getters
+var getQ1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
+
+// No story chapters
+
+init();
