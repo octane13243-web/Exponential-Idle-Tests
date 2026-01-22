@@ -4,7 +4,7 @@
 // ρ̇ = 2 · (ln(1 + σ)/5)
 // ========================================
 
-// 1️⃣ Theory metadata
+// 1️⃣ Metadata
 var id = "sigma_log_plus_free";
 var name = "Sigma Log+ Theory Free";
 var description = "ρ̇ = 2·(ln(1 + σ)/5) | σ first buy free";
@@ -28,7 +28,7 @@ theory.tick = (elapsedTime, multiplier) => {
     let logVal = BigNumber.from(Math.log(sVal.toNumber())); // ln(σ + 1)
     let rhoDot = logVal.mul(2).div(5); // 2*(ln(σ+1)/5)
 
-    // Proper accumulation using currency.add()
+    // Proper accumulation
     currency.add(rhoDot.mul(dt));
 };
 
@@ -37,15 +37,18 @@ theory.getPrimaryEquation = () => {
     return "\\dot{\\rho} = 2 \\cdot \\frac{\\ln(1 + \\sigma)}{5}";
 };
 
-// 6️⃣ Publication multiplier
+// 6️⃣ Refresh equation display on load
+theory.invalidatePrimaryEquation();
+
+// 7️⃣ Publication multiplier
 theory.getPublicationMultiplier = (tau) => tau.pow(0.15);
 theory.getPublicationMultiplierFormula = (symbol) => symbol + "^{0.15}";
 
-// 7️⃣ Milestone (modern, safe)
+// 8️⃣ Milestone (modern, safe)
 var milestone1 = theory.createMilestoneUpgrade(5, 1); // triggers at σ level 5
 milestone1.description = "Boost σ by 1";
 milestone1.info = "σ +1 automatically";
 milestone1.boughtOrRefunded = (_) => {
     sigma.level++;
-    theory.invalidatePrimaryEquation(); // refresh equation display
+    theory.invalidatePrimaryEquation(); // refresh display
 };
