@@ -1,50 +1,59 @@
-import { ExponentialCost, LinearCost } from "./api/Costs";
-import { theory, Utils, BigNumber } from "./api/Theory";
-import { Currency } from "./api/Currency";
-import { Variable } from "./api/Variable";
+// ========================================
+// SigmaLogPlusTheory.js
+// Starter Custom Theory with σ only
+// Formula: ρ̇ = 2 * (log(1 + σ)/5)
+// ========================================
 
-// --- Theory Metadata ---
-var id = "my_c1_theory";
-var name = "C1 Ascension";
-var description = "A theory where C1 reigns supreme.";
+// 1️⃣ Theory metadata
+var id = "sigmaLogPlusTheory";
+var name = "Sigma Log+ Theory";
+var description = "Starter theory: rho grows with σ using ρ̇ = 2*(log(1+σ)/5)";
 var authors = "horchata";
 var version = 1;
 
-// --- Variables ---
-var currency;
-var c1;
+// 2️⃣ Currency
+var currency = theory.createCurrency(); // main ρ
 
-// --- Create Theory ---
-theory.create(id, name, description, authors, version);
+// 3️⃣ Variable σ
+var sigma = theory.createUpgrade(0, currency, new ExponentialCost(2, 1.5));
+sigma.getDescription = () => "σ";
+sigma.getInfo = () => "Main variable for ρ growth";
 
-// --- Currency ---
-currency = theory.createCurrency();
-
-// --- Upgrades ---
-c1 = theory.createUpgrade(0, currency, new ExponentialCost(10, 1.2));
-c1.getDescription = () => "C1";
-c1.getInfo = () => "Main variable increasing rho production";
-c1.bought = (amount) => { c1.level += amount; };
-
-// --- Tick Function ---
+// 4️⃣ Tick Function (offline-safe)
 theory.tick = (elapsedTime, multiplier) => {
     let dt = elapsedTime * multiplier;
 
-    // Basic rho growth: rho = (c1+1)^1.5
-    let rhoDot = BigNumber.from(c1.level + 1).pow(1.5);
+    // Growth formula
+    let rhoDot = 2 * (Math.log(1 + sigma.level) / 5);
 
+    // Apply growth
     currency.value += rhoDot * dt;
+
+    // Milestone check
+    checkMilestones();
 };
 
-// --- Primary Equation ---
+// 5️⃣ Display equation
 theory.getPrimaryEquation = () => {
-    return "\\dot{\\rho} = (C1 + 1)^{1.5}";
+    return "\\dot{\\rho} = 2 \\cdot \\frac{\\ln(1 + \\sigma)}{5}";
 };
 
-// --- Publication Multiplier ---
+// 6️⃣ Publication multiplier
 theory.getPublicationMultiplier = (tau) => {
     return tau.pow(0.15);
 };
 theory.getPublicationMultiplierFormula = (symbol) => {
     return symbol + "^{0.15}";
 };
+
+// 7️⃣ Milestones
+var milestone1 = theory.createMilestone(5, "Boost σ by 1", "σ +1 automatically");
+var milestone1Unlocked = false;
+
+function checkMilestones() {
+    if(sigma.level >= 5 && !milestone1Unlocked){
+        sigma.level += 1;
+        milestone1Unlocked = true;
+        theory.invalidatePrimaryEquation();
+    }
+}
