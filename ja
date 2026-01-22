@@ -1,12 +1,13 @@
 // ========================================
 // SigmaLogPlusTheory.js
-// Fixed milestone creation
+// Simplified safe custom theory for EI
+// ρ̇ = 2 · (ln(1 + σ) / 5)
 // ========================================
 
 // 1️⃣ Theory metadata
-var id = "sigmaLogPlusTheory";
+var id = "sigma_log_plus";
 var name = "Sigma Log+ Theory";
-var description = "ρ̇ = 2 * (log(1 + σ)/5)";
+var description = "ρ̇ = 2·(ln(1 + σ)/5)";
 var authors = "horchata";
 var version = 1;
 
@@ -15,26 +16,41 @@ var currency = theory.createCurrency();
 
 // 3️⃣ Variable σ
 var sigma = theory.createUpgrade(0, currency, new ExponentialCost(2, 1.5));
-sigma.getDescription = () => "σ";
-sigma.getInfo = () => "Main variable for ρ growth";
+sigma.getDescription = (_) => "σ";
+sigma.getInfo = (_) => "Main variable for ρ growth";
 
-// 4️⃣ Tick function
+// 4️⃣ Tick function (offline‑safe)
 theory.tick = (elapsedTime, multiplier) => {
-    let dt = elapsedTime * multiplier;
-    let rhoDot = 2 * (Math.log(1 + sigma.level) / 5);
-    currency.value += rhoDot * dt;
+  let dt = BigNumber.from(elapsedTime * multiplier);
+
+  // Safe log growth
+  // We use BigNumber for safe math
+  let sVal = BigNumber.from(sigma.level).add(1); // (σ + 1)
+  let logVal = BigNumber.from(Math.log(sVal.toNumber())); // ln(σ+1)
+  let rhoDot = logVal.mul(2).div(5); // 2·(ln(σ+1)/5)
+
+  currency.value = currency.value.add(rhoDot.mul(dt));
 };
 
 // 5️⃣ Display equation
 theory.getPrimaryEquation = () => {
-    return "\\dot{\\rho} = 2 \\cdot \\frac{\\ln(1 + \\sigma)}{5}";
+  return "\\dot{\\rho} = 2 \\cdot \\frac{\\ln(1 + \\sigma)}{5}";
 };
 
 // 6️⃣ Publication multiplier
-theory.getPublicationMultiplier = (tau) => tau.pow(0.15);
-theory.getPublicationMultiplierFormula = (symbol) => symbol + "^{0.15}";
+theory.getPublicationMultiplier = (tau) => {
+  return tau.pow(0.15);
+};
+theory.getPublicationMultiplierFormula = (symbol) => {
+  return symbol + "^{0.15}";
+};
 
-// 7️⃣ Milestone (fixed)
-var milestone1 = theory.createMilestoneUpgrade(5, "Boost σ by 1", "σ +1 automatically");
-milestone1.maxLevel = 1; // optional: only triggers once
-milestone1.getEffect = () => sigma.level += 1;
+// 7️⃣ Milestone
+// Correct modern pattern
+var milestone1 = theory.createMilestoneUpgrade(5, 1);
+milestone1.description = Localization.getUpgradeAddLevelDesc("σ", "1");
+milestone1.info = Localization.getUpgradeAddLevelInfo("σ", "1");
+milestone1.boughtOrRefunded = (_) => {
+  sigma.level++;
+  theory.invalidatePrimaryEquation();
+};
