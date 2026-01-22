@@ -1,21 +1,21 @@
 // ========================================
-// SigmaLogPlusTheory.js
-// Fixed: σ-only theory with modern milestone
+// SigmaLogPlusTheoryFree.js
+// σ-only theory: first buy free, linear cost
 // ρ̇ = 2 · (ln(1 + σ)/5)
 // ========================================
 
 // 1️⃣ Theory metadata
-var id = "sigma_log_plus";
-var name = "Sigma Log+ Theory";
-var description = "ρ̇ = 2·(ln(1 + σ)/5)";
+var id = "sigma_log_plus_free";
+var name = "Sigma Log+ Theory Free";
+var description = "ρ̇ = 2·(ln(1 + σ)/5) | σ first buy free";
 var authors = "horchata";
 var version = 1;
 
 // 2️⃣ Currency
 var currency = theory.createCurrency();
 
-// 3️⃣ Variable σ
-var sigma = theory.createUpgrade(0, currency, new ExponentialCost(2, 1.5));
+// 3️⃣ Variable σ (first buy free, linear cost)
+var sigma = theory.createUpgrade(0, currency, new FirstFreeCost(new LinearCost(1, 1)));
 sigma.getDescription = (_) => "σ";
 sigma.getInfo = (_) => "Main variable for ρ growth";
 
