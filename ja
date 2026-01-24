@@ -19,8 +19,8 @@ var tauMultiplier = 1;
 var currency;
 
 // Variables
-var q;
 var c;
+var q;
 
 // Internal state
 // No internal state variables
@@ -30,27 +30,27 @@ var init = () => {
 
     ///////////////////
     // Regular Upgrades
-    // q
-    {
-        let getDesc = (level) => "q=" + getQ(level).toString(0);
-        let getInfo = (level) => "q=" + getQ(level).toString(0);
-        q = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(10, 2)));
-        q.getDescription = (amount) => Utils.getMath(getDesc(q.level));
-        q.getInfo = (amount) => Utils.getMathTo(getInfo(q.level), getInfo(q.level + amount));
-    }
-
     // c
     {
         let getDesc = (level) => "c=" + getC(level).toString(0);
         let getInfo = (level) => "c=" + getC(level).toString(0);
-        c = theory.createUpgrade(1, currency, new ExponentialCost(10, 2));
+        c = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(10, 2)));
         c.getDescription = (amount) => Utils.getMath(getDesc(c.level));
         c.getInfo = (amount) => Utils.getMathTo(getInfo(c.level), getInfo(c.level + amount));
     }
 
+    // q
+    {
+        let getDesc = (level) => "q=" + getQ(level).toString(0);
+        let getInfo = (level) => "q=" + getQ(level).toString(0);
+        q = theory.createUpgrade(1, currency, new ExponentialCost(25, 2));
+        q.getDescription = (amount) => Utils.getMath(getDesc(q.level));
+        q.getInfo = (amount) => Utils.getMathTo(getInfo(q.level), getInfo(q.level + amount));
+    }
+
     /////////////////////
     // Permanent Upgrades
-    theory.createPublicationUpgrade(0, currency, 1e8);
+    theory.createPublicationUpgrade(0, currency, 1e5);
     theory.createBuyAllUpgrade(1, currency, 1e15);
     theory.createAutoBuyerUpgrade(2, currency, 1e25);
 
@@ -69,11 +69,11 @@ var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
     let bonus = theory.publicationMultiplier;
     
-    let vq = getQ(q.level);
     let vc = getC(c.level);
+    let vq = getQ(q.level);
     
     // Main equation - customize this based on your theory
-    currency.value += bonus * dt * vq * vc;
+    currency.value += bonus * dt * vc * vq;
     
     theory.invalidateTertiaryEquation();
 }
@@ -91,7 +91,7 @@ var postPublish = () => {
 }
 
 var getPrimaryEquation = () => {
-    return "\\,\\dot{\\rho} = c \\left( \\frac{\\log(q)}{2} \\right)";
+    return "\\dot{\\rho} = q \\left( \\frac{\\log(c)}{2} \\right)";
 }
 
 var getSecondaryEquation = () => {
@@ -104,12 +104,12 @@ var getTertiaryEquation = () => {
 
 var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
 var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
-var getTau = () => currency.value.pow(0.1);
+var getTau = () => currency.value.pow(1);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
 // Variable getters
-var getQ = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
-var getC = (level) => BigNumber.from(2).pow(BigNumber.from(level));
+var getC = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
+var getQ = (level) => BigNumber.from(2).pow(BigNumber.from(level));
 
 // No story chapters
 
