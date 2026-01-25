@@ -7,7 +7,7 @@ import { Utils } from "./api/Utils";
 var id = "my_theory";
 var name = "Logs";
 var description = "A custom theory for Exponential Idle.";
-var authors = "horchata ";
+var authors = "Horchacha ";
 var version = 1;
 var releaseOrder = "1";
 
@@ -43,7 +43,7 @@ var init = () => {
     {
         let getDesc = (level) => "q=" + getQ(level).toString(0);
         let getInfo = (level) => "q=" + getQ(level).toString(0);
-        q = theory.createUpgrade(1, currency, new ExponentialCost(25, 2));
+        q = theory.createUpgrade(1, currency, new ExponentialCost(10, 2));
         q.getDescription = (amount) => Utils.getMath(getDesc(q.level));
         q.getInfo = (amount) => Utils.getMathTo(getInfo(q.level), getInfo(q.level + amount));
     }
@@ -51,8 +51,8 @@ var init = () => {
     /////////////////////
     // Permanent Upgrades
     theory.createPublicationUpgrade(0, currency, 1);
-    theory.createBuyAllUpgrade(1, currency, 1e15);
-    theory.createAutoBuyerUpgrade(2, currency, 1e25);
+    theory.createBuyAllUpgrade(1, currency, 1);
+    theory.createAutoBuyerUpgrade(2, currency, 1);
 
     /////////////////////
     // Milestone Upgrades
@@ -60,7 +60,7 @@ var init = () => {
     // Milestone 1
     {
         let milestone0 = theory.createMilestoneUpgrade(0, 1);
-        milestone0.description = "Increase c";
+        milestone0.description = "Milestone upgrade";
         milestone0.info = "Milestone upgrade";
     }
 }
@@ -91,7 +91,7 @@ var postPublish = () => {
 }
 
 var getPrimaryEquation = () => {
-    return "\\dot{\\rho} = q \\left( \\frac{\\log(c)}{2} \\right)";
+    return "\\dot{\\rho} = \\frac{q \\log(c)}{2}";
 }
 
 var getSecondaryEquation = () => {
@@ -99,12 +99,12 @@ var getSecondaryEquation = () => {
 }
 
 var getTertiaryEquation = () => {
-    return "";
+    return ""rho=" + (q * Math.log(c) / 2).toString()";
 }
 
 var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
-var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
-var getTau = () => currency.value.pow(0.4);
+var getPublicationMultiplierFormula = (symbol) => "{τ}^{0.15}";
+var getTau = () => currency.value.pow(0.4;
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
 // Variable getters
