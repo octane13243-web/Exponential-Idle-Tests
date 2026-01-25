@@ -5,9 +5,9 @@ import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
 var id = "my_theory";
-var name = "Logs (fixed)";
+var name = "My Custom Theory";
 var description = "A custom theory for Exponential Idle.";
-var authors = "Horchata";
+var authors = "Your Name";
 var version = 1;
 var releaseOrder = "1";
 
@@ -51,8 +51,8 @@ var init = () => {
     /////////////////////
     // Permanent Upgrades
     theory.createPublicationUpgrade(0, currency, 1);
-    theory.createBuyAllUpgrade(1, currency, 1e15);
-    theory.createAutoBuyerUpgrade(2, currency, 1e25);
+    theory.createBuyAllUpgrade(1, currency, 2);
+    theory.createAutoBuyerUpgrade(2, currency, 3);
 
     /////////////////////
     // Milestone Upgrades
@@ -60,8 +60,8 @@ var init = () => {
     // Milestone 1
     {
         let milestone0 = theory.createMilestoneUpgrade(0, 1);
-        milestone0.description = "Raise the c exponent";
-        milestone0.info = "Raise the c exponent";
+        milestone0.description = "Milestone upgrade";
+        milestone0.info = "Milestone upgrade";
     }
 }
 
@@ -102,9 +102,9 @@ var getTertiaryEquation = () => {
     return "";
 }
 
-var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.30);
+var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.2);
 var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
-var getTau = () => currency.value.pow(0.5);
+var getTau = () => currency.value.pow(0.4);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
 // Variable getters
