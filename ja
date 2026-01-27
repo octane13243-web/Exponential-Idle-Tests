@@ -71,8 +71,8 @@ var init = () => {
     // Effects: increaseExponent(c, 2)
     {
         milestone_0 = theory.createMilestoneUpgrade(0, 1);
-        milestone_0.description = Localization.getUpgradeDesc("Milestone upgrade");
-        milestone_0.info = Localization.getUpgradeInfo("Milestone upgrade");
+        milestone_0.description = "Milestone upgrade";
+        milestone_0.info = "Milestone upgrade";
         milestone_0.boughtOrRefunded = (_) => { theory.invalidatePrimaryEquation(); updateAvailability(); };
     }
 
