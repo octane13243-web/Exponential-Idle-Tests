@@ -30,7 +30,7 @@ var q;
 // =====================
 // Each milestone = ρ requirement + list of grammar effects
 // Milestones are SWITCHES, not LOGIC
-var milestone_0; // ρ ≥ 1e6
+var milestone_0; // ρ ≥ 1e3
 
 var init = () => {
     currency = theory.createCurrency();
@@ -57,14 +57,14 @@ var init = () => {
 
     /////////////////////
     // Permanent Upgrades
-    theory.createPublicationUpgrade(0, currency, 1e8);
-    theory.createBuyAllUpgrade(1, currency, 1e15);
-    theory.createAutoBuyerUpgrade(2, currency, 1e25);
+    theory.createPublicationUpgrade(0, currency, 1);
+    theory.createBuyAllUpgrade(1, currency, 2);
+    theory.createAutoBuyerUpgrade(2, currency, 3);
 
     /////////////////////
     // Milestone Upgrades (Data Only - Grammar Effects Applied in Equation Builder)
     theory.setMilestoneCost(new CustomCost(lvl => {
-        const costs = [6];
+        const costs = [3];
         return BigNumber.from(costs[Math.min(lvl, costs.length - 1)]);
     }));
     // Milestone 1: No description
@@ -120,12 +120,7 @@ var postPublish = () => {
 // DISPLAY BUILDER (mirrors Equation Builder)
 // =====================
 var getPrimaryEquation = () => {
-    // Display must MIRROR the calculation
-
-    let cExp = 1 + milestone_0.level * 2;
-    let cExpStr = cExp > 1 ? "^{" + cExp.toFixed(2) + "}" : "";
-    let qExpStr = "";
-    return "\\dot{\\rho} = " + "c" + cExpStr + " " + "q" + qExpStr;
+    return "\\dot{\\rho} = \\frac{q \\log(c)}{2}";
 }
 
 var getSecondaryEquation = () => {
@@ -137,9 +132,9 @@ var getTertiaryEquation = () => {
 }
 
 // τ is computed SEPARATELY (never in main equation display)
-var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
-var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
-var getTau = () => currency.value.pow(0.1);
+var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.3);
+var getPublicationMultiplierFormula = (symbol) => "{τ}^{0.15}";
+var getTau = () => currency.value.pow(0.5);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
 // Variable getters
