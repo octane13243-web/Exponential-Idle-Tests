@@ -15,21 +15,28 @@ requiresGameVersion("1.4.33");
 
 var tauMultiplier = 1;
 
+// =====================
+// STATE SCHEMA
+// =====================
 // Currency
 var currency;
 
-// Variables
+// Variables (purchasable upgrades)
 var c;
 var q;
 
-// Internal state
-// No internal state variables
+// =====================
+// MILESTONES (Data Only)
+// =====================
+// Each milestone = ρ requirement + list of grammar effects
+// Milestones are SWITCHES, not LOGIC
+var milestone_0; // ρ ≥ 1e6
 
 var init = () => {
     currency = theory.createCurrency();
 
     ///////////////////
-    // Regular Upgrades
+    // Regular Upgrades (Variables)
     // c
     {
         let getDesc = (level) => "c=" + getC(level).toString(0);
@@ -50,27 +57,51 @@ var init = () => {
 
     /////////////////////
     // Permanent Upgrades
-    theory.createPublicationUpgrade(0, currency, 1);
-    theory.createBuyAllUpgrade(1, currency, 1);
-    theory.createAutoBuyerUpgrade(2, currency, 1);
+    theory.createPublicationUpgrade(0, currency, 1e8);
+    theory.createBuyAllUpgrade(1, currency, 1e15);
+    theory.createAutoBuyerUpgrade(2, currency, 1e25);
 
     /////////////////////
-    // Milestone Upgrades
-    // No milestones defined
+    // Milestone Upgrades (Data Only - Grammar Effects Applied in Equation Builder)
+    theory.setMilestoneCost(new CustomCost(lvl => {
+        const costs = [6];
+        return BigNumber.from(costs[Math.min(lvl, costs.length - 1)]);
+    }));
+    // Milestone 1: No description
+    // Effects: increaseExponent(c, 2)
+    {
+        milestone_0 = theory.createMilestoneUpgrade(0, 1);
+        milestone_0.description = Localization.getUpgradeDesc("Milestone upgrade");
+        milestone_0.info = Localization.getUpgradeInfo("Milestone upgrade");
+        milestone_0.boughtOrRefunded = (_) => { theory.invalidatePrimaryEquation(); updateAvailability(); };
+    }
 
+    updateAvailability();
 }
 
+// =====================
+// EQUATION BUILDER (reads state, does math)
+// =====================
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
     let bonus = theory.publicationMultiplier;
     
-    let vc = getC(c.level);
+    // Variable values (Equation Builder reads milestone state)
+    let vc = getC(c.level).pow(1 + milestone_0.level * 2);
     let vq = getQ(q.level);
     
-    // Main equation - customize this based on your theory
-    currency.value += bonus * dt * vc * vq;
+    // Apply global multipliers from milestones
+    let globalMult = BigNumber.ONE;
+    
+    // Main equation: ρ = bonus * dt * [assembled terms]
+    currency.value += bonus * dt * vc * vq * globalMult;
     
     theory.invalidateTertiaryEquation();
+}
+
+// Availability based on unlock effects
+var updateAvailability = () => {
+    // No unlock effects
 }
 
 var getInternalState = () => {
@@ -85,8 +116,16 @@ var postPublish = () => {
     // Reset values after publish
 }
 
+// =====================
+// DISPLAY BUILDER (mirrors Equation Builder)
+// =====================
 var getPrimaryEquation = () => {
-    return "\\dot{\\rho} = \\frac{q \\log(c)}{2}";
+    // Display must MIRROR the calculation
+
+    let cExp = 1 + milestone_0.level * 2;
+    let cExpStr = cExp > 1 ? "^{" + cExp.toFixed(2) + "}" : "";
+    let qExpStr = "";
+    return "\\dot{\\rho} = " + "c" + cExpStr + " " + "q" + qExpStr;
 }
 
 var getSecondaryEquation = () => {
@@ -97,9 +136,10 @@ var getTertiaryEquation = () => {
     return "";
 }
 
-var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.3);
-var getPublicationMultiplierFormula = (symbol) => "{τ}^{0.15}";
-var getTau = () => currency.value.pow(0.15);
+// τ is computed SEPARATELY (never in main equation display)
+var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
+var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
+var getTau = () => currency.value.pow(0.1);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
 // Variable getters
