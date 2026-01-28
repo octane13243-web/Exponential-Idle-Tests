@@ -7,7 +7,7 @@ import { Utils } from "./api/Utils";
 var id = "my_theory";
 var name = "My Custom Theory";
 var description = "A custom theory for Exponential Idle.";
-var authors = "Your Name";
+var authors = "Op o o";
 var version = 1;
 var releaseOrder = "1";
 
@@ -26,7 +26,7 @@ var c;
 var q;
 
 // Milestone state variables (milestones write here, equation builder reads here)
-var milestone_0; // ρ ≥ 1e1
+var milestone_0; // ρ ≥ 1e2
 
 // =====================
 // EQUATION BUILDER (SINGLE source for both math AND display)
@@ -38,7 +38,8 @@ var milestone_0; // ρ ≥ 1e1
 // CRITICAL: This creates a NEW string every time - display is NOT reactive
 var buildPrimaryEquationDisplay = () => {
     // User-defined equation with state-based modifications
-    return "\\dot{\\rho} = \\frac{q \\log(c)}{3}";
+    let cExp = 1 + milestone_0.level * 2;
+    return "\\dot{\\rho} = \\frac{q \\log(c)}{2}";
 };
 
 var init = () => {
@@ -59,7 +60,7 @@ var init = () => {
     {
         let getDesc = (level) => "q=" + getQ(level).toString(0);
         let getInfo = (level) => "q=" + getQ(level).toString(0);
-        q = theory.createUpgrade(1, currency, new FirstFreeCost(new ExponentialCost(25, 2)));
+        q = theory.createUpgrade(1, currency, new ExponentialCost(25, 2));
         q.getDescription = (amount) => Utils.getMath(getDesc(q.level));
         q.getInfo = (amount) => Utils.getMathTo(getInfo(q.level), getInfo(q.level + amount));
     }
@@ -74,12 +75,14 @@ var init = () => {
     // Milestone Upgrades
     // Milestones ONLY modify state flags - they NEVER touch display directly
     // After state change, they call theory.invalidatePrimaryEquation() to trigger rebuild
+    // Milestones unlock based on ρ (currency value), NOT τ
+    // ρ requirement exponents: [2]
     theory.setMilestoneCost(new CustomCost(lvl => {
-        const costs = [1];
-        return BigNumber.from(costs[Math.min(lvl, costs.length - 1)]);
+        const rhoExponents = [2];
+        return BigNumber.from(rhoExponents[Math.min(lvl, rhoExponents.length - 1)]);
     }));
-    // Milestone 1: Milestone upgrade
-    // Effects: none
+    // Milestone 1: No description
+    // Effects: increaseExponent(c, 2)
     // STATE CHANGE -> triggers equation rebuild -> updates display
     {
         milestone_0 = theory.createMilestoneUpgrade(0, 1);
@@ -106,7 +109,7 @@ var tick = (elapsedTime, multiplier) => {
     let bonus = theory.publicationMultiplier;
     
     // Read current state and compute variable values
-    let vc = getC(c.level);
+    let vc = getC(c.level).pow(1 + milestone_0.level * 2);
     let vq = getQ(q.level);
     
     // Read current state and compute global multipliers
@@ -155,14 +158,14 @@ var getTertiaryEquation = () => {
 }
 
 // τ is computed SEPARATELY (never in main equation display)
-var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
-var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
-var getTau = () => currency.value.pow(0.1);
+var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.3);
+var getPublicationMultiplierFormula = (symbol) => "{τ}^{0.15}";
+var getTau = () => currency.value.pow(0.5);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
 // Variable value getters
 var getC = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
-var getQ = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
+var getQ = (level) => BigNumber.from(2).pow(BigNumber.from(level));
 
 // No story chapters
 
