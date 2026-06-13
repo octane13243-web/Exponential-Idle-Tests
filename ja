@@ -13,14 +13,15 @@ var releaseOrder = "1";
 
 requiresGameVersion("1.4.33");
 
-var tauMultiplier = 1;
+var tauMultiplier = 14;
 
 // Currency
 var currency;
 
 // Variables
+var σ;
+var χ;
 var q;
-var c;
 
 // Internal state
 // No internal state variables
@@ -30,22 +31,31 @@ var init = () => {
 
     ///////////////////
     // Regular Upgrades
+    // σ
+    {
+        let getDesc = (level) => "σ=" + getΣ(level).toString(0);
+        let getInfo = (level) => "σ=" + getΣ(level).toString(0);
+        σ = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(10, 2)));
+        σ.getDescription = (amount) => Utils.getMath(getDesc(σ.level));
+        σ.getInfo = (amount) => Utils.getMathTo(getInfo(σ.level), getInfo(σ.level + amount));
+    }
+
+    // χ
+    {
+        let getDesc = (level) => "χ=" + getΧ(level).toString(0);
+        let getInfo = (level) => "χ=" + getΧ(level).toString(0);
+        χ = theory.createUpgrade(1, currency, new ExponentialCost(25, 2));
+        χ.getDescription = (amount) => Utils.getMath(getDesc(χ.level));
+        χ.getInfo = (amount) => Utils.getMathTo(getInfo(χ.level), getInfo(χ.level + amount));
+    }
+
     // q
     {
         let getDesc = (level) => "q=" + getQ(level).toString(0);
         let getInfo = (level) => "q=" + getQ(level).toString(0);
-        q = theory.createUpgrade(0, currency, new ExponentialCost(25, 2));
+        q = theory.createUpgrade(2, currency, new FirstFreeCost(new ExponentialCost(10, 2)));
         q.getDescription = (amount) => Utils.getMath(getDesc(q.level));
         q.getInfo = (amount) => Utils.getMathTo(getInfo(q.level), getInfo(q.level + amount));
-    }
-
-    // c
-    {
-        let getDesc = (level) => "c=" + getC(level).toString(0);
-        let getInfo = (level) => "c=" + getC(level).toString(0);
-        c = theory.createUpgrade(1, currency, new FirstFreeCost(new ExponentialCost(10, 2)));
-        c.getDescription = (amount) => Utils.getMath(getDesc(c.level));
-        c.getInfo = (amount) => Utils.getMathTo(getInfo(c.level), getInfo(c.level + amount));
     }
 
     /////////////////////
@@ -56,24 +66,20 @@ var init = () => {
 
     /////////////////////
     // Milestone Upgrades
-    theory.setMilestoneCost(new CustomCost(lvl => BigNumber.from(1 + lvl)));
-    // Milestone 1
-    {
-        let milestone0 = theory.createMilestoneUpgrade(0, 1);
-        milestone0.description = "Milestone upgrade";
-        milestone0.info = "Milestone upgrade";
-    }
+    // No milestones defined
+
 }
 
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
     let bonus = theory.publicationMultiplier;
     
+    let vσ = getΣ(σ.level);
+    let vχ = getΧ(χ.level);
     let vq = getQ(q.level);
-    let vc = getC(c.level);
     
     // Main equation - customize this based on your theory
-    currency.value += bonus * dt * vq * vc;
+    currency.value += bonus * dt * vσ * vχ * vq;
     
     theory.invalidateTertiaryEquation();
 }
@@ -91,7 +97,7 @@ var postPublish = () => {
 }
 
 var getPrimaryEquation = () => {
-    return "\\dot{\\rho} = \\frac{q \\cdot c}{\\pi^{1.2}}";
+    return "\\dot{\\rho} = \\int_{0}^{\\sigma} \\left( q x + \\frac{\\chi}{2} x \\right) dx";
 }
 
 var getSecondaryEquation = () => {
@@ -102,14 +108,15 @@ var getTertiaryEquation = () => {
     return "";
 }
 
-var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
+var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.3);
 var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
-var getTau = () => currency.value.pow(0.1);
+var getTau = () => currency.value.pow(1.6);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
 // Variable getters
-var getQ = (level) => BigNumber.from(2).pow(BigNumber.from(level));
-var getC = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
+var getΣ = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
+var getΧ = (level) => BigNumber.from(3).pow(BigNumber.from(level));
+var getQ = (level) => BigNumber.from(level * 1);
 
 // No story chapters
 
