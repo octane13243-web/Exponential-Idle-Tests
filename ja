@@ -10,25 +10,24 @@ var description = "A custom theory for Exponential Idle.";
 var authors = "Your Name";
 var version = 1;
 var releaseOrder = "1";
+var tauMultiplier = 1;
 
 requiresGameVersion("1.4.33");
 
-var tauMultiplier = 1;
-
-// Currency
 var currency;
 
 // Variables
 var q1;
 var q2;
 
-// Internal state
+// Milestones (global — accessible from all functions)
+var milestone0;
+
 // No internal state variables
 
 var init = () => {
     currency = theory.createCurrency();
 
-    ///////////////////
     // Regular Upgrades
     // q1
     {
@@ -43,39 +42,51 @@ var init = () => {
     {
         let getDesc = (level) => "q2=" + getQ2(level).toString(0);
         let getInfo = (level) => "q2=" + getQ2(level).toString(0);
-        q2 = theory.createUpgrade(1, currency, new ExponentialCost(10, 2));
+        q2 = theory.createUpgrade(1, currency, new FirstFreeCost(new ExponentialCost(10, 2)));
         q2.getDescription = (amount) => Utils.getMath(getDesc(q2.level));
         q2.getInfo = (amount) => Utils.getMathTo(getInfo(q2.level), getInfo(q2.level + amount));
     }
 
-    /////////////////////
     // Permanent Upgrades
     theory.createPublicationUpgrade(0, currency, 1);
     theory.createBuyAllUpgrade(1, currency, 1e15);
     theory.createAutoBuyerUpgrade(2, currency, 1e25);
 
-    /////////////////////
     // Milestone Upgrades
-    theory.setMilestoneCost(new CustomCost(lvl => BigNumber.from(1 + lvl)));
     // Milestone 1
     {
-        let squareq1 = theory.createMilestoneUpgrade(0, 1);
-        squareq1.description = "square q1";
-        squareq1.info = "square q1";
+        milestone0 = theory.createMilestoneUpgrade(0, 12);
+        milestone0.description = "Milestone 1";
+        milestone0.info = "Milestone 1";
     }
+
+    // Bought/refunded callbacks (invalidate equations when milestones change)
+    milestone0.boughtOrRefunded = (_) => {
+        theory.invalidatePrimaryEquation();
+    };
+
+    updateAvailability();
 }
 
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
     let bonus = theory.publicationMultiplier;
     
-    let vq1 = getQ1(q1.level);
+    let exp_q1 = 1 + milestone0.level * 0.05;
+    let vq1 = getQ1(q1.level).pow(exp_q1);
     let vq2 = getQ2(q2.level);
-    
-    // Main equation - customize this based on your theory
-    currency.value += bonus * dt * vq1 * vq2;
+
+    // Build result by multiplying all variable contributions together
+    let result = vq1.times(vq2);
+
+
+    currency.value += bonus * dt * result;
     
     theory.invalidateTertiaryEquation();
+}
+
+var updateAvailability = () => {
+
 }
 
 var getInternalState = () => {
@@ -83,33 +94,37 @@ var getInternalState = () => {
 }
 
 var setInternalState = (state) => {
-    // Restore internal state from string
 }
 
 var postPublish = () => {
-    // Reset values after publish
 }
 
 var getPrimaryEquation = () => {
-    return "\\dot{\\rho} = q_1 q_2";
+    let terms = [];
+
+    terms.push("q_1^{" + (1 + milestone0.level * 0.05) + "}");
+    terms.push("q_2");
+
+    return theory.latexSymbol + "=" + terms.join(" ");
+
 }
 
 var getSecondaryEquation = () => {
-    return theory.latexSymbol + "=\\max\\rho";
+    return "=\\max\\rho";
 }
 
 var getTertiaryEquation = () => {
     return "";
 }
 
-var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.015);
-var getPublicationMultiplierFormula = (symbol) => "{τ}^{0.15}";
-var getTau = () => currency.value.pow(0.8);
+var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
+var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
+var getTau = () => currency.value.pow(0.1);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
 // Variable getters
 var getQ1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
-var getQ2 = (level) => BigNumber.from(2).pow(BigNumber.from(level));
+var getQ2 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
 
 // No story chapters
 
