@@ -117,8 +117,8 @@ var getTertiaryEquation = () => {
     return "";
 }
 
-var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
-var getPublicationMultiplierFormula = (symbol) => "\\tau^{0.15}";
+var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.9);
+var getPublicationMultiplierFormula = (symbol) => "\\tau^{0.9}";
 var getTau = () => currency.value.pow(0.5);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
