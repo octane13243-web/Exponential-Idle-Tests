@@ -13,15 +13,14 @@ var releaseOrder = "1";
 
 requiresGameVersion("1.4.33");
 
-var tauMultiplier = 14;
+var tauMultiplier = 1;
 
 // Currency
 var currency;
 
 // Variables
-var σ;
-var χ;
-var q;
+var q1;
+var q2;
 
 // Internal state
 // No internal state variables
@@ -31,55 +30,50 @@ var init = () => {
 
     ///////////////////
     // Regular Upgrades
-    // σ
+    // q1
     {
-        let getDesc = (level) => "σ=" + getΣ(level).toString(0);
-        let getInfo = (level) => "σ=" + getΣ(level).toString(0);
-        σ = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(10, 2)));
-        σ.getDescription = (amount) => Utils.getMath(getDesc(σ.level));
-        σ.getInfo = (amount) => Utils.getMathTo(getInfo(σ.level), getInfo(σ.level + amount));
+        let getDesc = (level) => "q1=" + getQ1(level).toString(0);
+        let getInfo = (level) => "q1=" + getQ1(level).toString(0);
+        q1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(10, 2)));
+        q1.getDescription = (amount) => Utils.getMath(getDesc(q1.level));
+        q1.getInfo = (amount) => Utils.getMathTo(getInfo(q1.level), getInfo(q1.level + amount));
     }
 
-    // χ
+    // q2
     {
-        let getDesc = (level) => "χ=" + getΧ(level).toString(0);
-        let getInfo = (level) => "χ=" + getΧ(level).toString(0);
-        χ = theory.createUpgrade(1, currency, new ExponentialCost(25, 2));
-        χ.getDescription = (amount) => Utils.getMath(getDesc(χ.level));
-        χ.getInfo = (amount) => Utils.getMathTo(getInfo(χ.level), getInfo(χ.level + amount));
-    }
-
-    // q
-    {
-        let getDesc = (level) => "q=" + getQ(level).toString(0);
-        let getInfo = (level) => "q=" + getQ(level).toString(0);
-        q = theory.createUpgrade(2, currency, new FirstFreeCost(new ExponentialCost(10, 2)));
-        q.getDescription = (amount) => Utils.getMath(getDesc(q.level));
-        q.getInfo = (amount) => Utils.getMathTo(getInfo(q.level), getInfo(q.level + amount));
+        let getDesc = (level) => "q2=" + getQ2(level).toString(0);
+        let getInfo = (level) => "q2=" + getQ2(level).toString(0);
+        q2 = theory.createUpgrade(1, currency, new ExponentialCost(10, 2));
+        q2.getDescription = (amount) => Utils.getMath(getDesc(q2.level));
+        q2.getInfo = (amount) => Utils.getMathTo(getInfo(q2.level), getInfo(q2.level + amount));
     }
 
     /////////////////////
     // Permanent Upgrades
-    theory.createPublicationUpgrade(0, currency, 1e8);
+    theory.createPublicationUpgrade(0, currency, 1);
     theory.createBuyAllUpgrade(1, currency, 1e15);
     theory.createAutoBuyerUpgrade(2, currency, 1e25);
 
     /////////////////////
     // Milestone Upgrades
-    // No milestones defined
-
+    theory.setMilestoneCost(new CustomCost(lvl => BigNumber.from(1 + lvl)));
+    // Milestone 1
+    {
+        let squareq1 = theory.createMilestoneUpgrade(0, 1);
+        squareq1.description = "square q1";
+        squareq1.info = "square q1";
+    }
 }
 
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
     let bonus = theory.publicationMultiplier;
     
-    let vσ = getΣ(σ.level);
-    let vχ = getΧ(χ.level);
-    let vq = getQ(q.level);
+    let vq1 = getQ1(q1.level);
+    let vq2 = getQ2(q2.level);
     
     // Main equation - customize this based on your theory
-    currency.value += bonus * dt * vσ * vχ * vq;
+    currency.value += bonus * dt * vq1 * vq2;
     
     theory.invalidateTertiaryEquation();
 }
@@ -97,7 +91,7 @@ var postPublish = () => {
 }
 
 var getPrimaryEquation = () => {
-    return "\\dot{\\rho} = \\int_{0}^{\\sigma} \\left( q x + \\frac{\\chi}{2} x \\right) dx";
+    return "\\dot{\\rho} = q_1 q_2";
 }
 
 var getSecondaryEquation = () => {
@@ -108,15 +102,14 @@ var getTertiaryEquation = () => {
     return "";
 }
 
-var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.3);
-var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
-var getTau = () => currency.value.pow(1.6);
+var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.015);
+var getPublicationMultiplierFormula = (symbol) => "{τ}^{0.15}";
+var getTau = () => currency.value.pow(0.8);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
 // Variable getters
-var getΣ = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
-var getΧ = (level) => BigNumber.from(3).pow(BigNumber.from(level));
-var getQ = (level) => BigNumber.from(level * 1);
+var getQ1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
+var getQ2 = (level) => BigNumber.from(2).pow(BigNumber.from(level));
 
 // No story chapters
 
