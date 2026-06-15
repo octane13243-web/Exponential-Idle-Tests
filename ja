@@ -48,7 +48,7 @@ var init = () => {
     }
 
     // Permanent Upgrades
-    theory.createPublicationUpgrade(0, currency, 1e8);
+    theory.createPublicationUpgrade(0, currency, 1);
     theory.createBuyAllUpgrade(1, currency, 1e15);
     theory.createAutoBuyerUpgrade(2, currency, 1e25);
 
@@ -105,7 +105,7 @@ var getPrimaryEquation = () => {
     terms.push("q");
     terms.push("c^{" + (1 + milestone0.level * 0.05) + "}");
 
-    return "\dot{\rho}=" + terms.join(" ");
+    return "\\dot{\rho}=" + terms.join(" ");
 
 }
 
@@ -118,7 +118,7 @@ var getTertiaryEquation = () => {
 }
 
 var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
-var getPublicationMultiplierFormula = (symbol) => "\tau^{0.15}";
+var getPublicationMultiplierFormula = (symbol) => "\\tau^{0.15}";
 var getTau = () => currency.value.pow(0.1);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
