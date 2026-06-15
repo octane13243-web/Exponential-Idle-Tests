@@ -33,7 +33,7 @@ var init = () => {
     {
         let getDesc = (level) => "q=" + getQ(level).toString(0);
         let getInfo = (level) => "q=" + getQ(level).toString(0);
-        q = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(10, 1.5)));
+        q = theory.createUpgrade(0, currency, new ExponentialCost(10, 2));
         q.getDescription = (amount) => Utils.getMath(getDesc(q.level));
         q.getInfo = (amount) => Utils.getMathTo(getInfo(q.level), getInfo(q.level + amount));
     }
@@ -42,22 +42,22 @@ var init = () => {
     {
         let getDesc = (level) => "c=" + getC(level).toString(0);
         let getInfo = (level) => "c=" + getC(level).toString(0);
-        c = theory.createUpgrade(1, currency, new ExponentialCost(10, 2));
+        c = theory.createUpgrade(1, currency, new FirstFreeCost(new ExponentialCost(5, 2)));
         c.getDescription = (amount) => Utils.getMath(getDesc(c.level));
         c.getInfo = (amount) => Utils.getMathTo(getInfo(c.level), getInfo(c.level + amount));
     }
 
     // Permanent Upgrades
-    theory.createPublicationUpgrade(0, currency, 1);
+    theory.createPublicationUpgrade(0, currency, 1e8);
     theory.createBuyAllUpgrade(1, currency, 1e15);
     theory.createAutoBuyerUpgrade(2, currency, 1e25);
 
     // Milestone Upgrades
-    // Increase q exponent by .15
+    // Milestone 1
     {
         milestone0 = theory.createMilestoneUpgrade(0, 1);
-        milestone0.description = "Increase q exponent by .15";
-        milestone0.info = "Increase q exponent by .15";
+        milestone0.description = "Milestone 1";
+        milestone0.info = "Milestone 1";
     }
 
     // Bought/refunded callbacks (invalidate equations when milestones change)
@@ -72,9 +72,9 @@ var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
     let bonus = theory.publicationMultiplier;
     
-    let exp_q = 1 + milestone0.level * 0.15;
-    let vq = getQ(q.level).pow(exp_q);
-    let vc = getC(c.level);
+    let vq = getQ(q.level);
+    let exp_c = 1 + milestone0.level * 0.05;
+    let vc = getC(c.level).pow(exp_c);
 
     // Build result by multiplying all variable contributions together
     let result = vq * vc;
@@ -102,10 +102,10 @@ var postPublish = () => {
 var getPrimaryEquation = () => {
     let terms = [];
 
-    terms.push("q^{" + (1 + milestone0.level * 0.15) + "}");
-    terms.push("c");
+    terms.push("q");
+    terms.push("c^{" + (1 + milestone0.level * 0.05) + "}");
 
-    return theory.latexSymbol + "=" + terms.join(" ");
+    return "\dot{\rho}=" + terms.join(" ");
 
 }
 
@@ -118,13 +118,13 @@ var getTertiaryEquation = () => {
 }
 
 var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
-var getPublicationMultiplierFormula = (symbol) => "{symbol}^{0.15}";
+var getPublicationMultiplierFormula = (symbol) => "\tau^{0.15}";
 var getTau = () => currency.value.pow(0.1);
 var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
 // Variable getters
-var getQ = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
-var getC = (level) => BigNumber.from(2).pow(level);
+var getQ = (level) => BigNumber.from(2).pow(level);
+var getC = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
 
 // No story chapters
 
