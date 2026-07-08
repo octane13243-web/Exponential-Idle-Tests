@@ -1,134 +1,170 @@
-import { ExponentialCost, FirstFreeCost } from "./api/Costs";
+import { ExponentialCost, FirstFreeCost, LinearCost } from "./api/Costs";
 import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "my_theory";
-var name = "My Custom Theory";
-var description = "A custom theory for Exponential Idle.";
-var authors = "Your Name";
+var id = "math_foundations";
+var name = "Mathematical Foundations";
+var description = "A journey through mathematics.";
+var authors = "horchata & ChatGPT";
 var version = 1;
-var releaseOrder = "1";
-
-requiresGameVersion("1.4.33");
 
 var currency;
 
-var eta;
-var q;
+var A, P, x;
+var functions;
 
 var init = () => {
     currency = theory.createCurrency();
 
-    // η
-    {
-        let getDesc = (level) => "\\eta=" + getEta(level).toString(0);
-        let getInfo = (level) => "\\eta=" + getEta(level).toString(0);
+    ///////////////////
+    // Regular Upgrades
 
-        eta = theory.createUpgrade(
+    // Arithmetic
+    {
+        let getDesc = (level) => "A=" + getA(level).toString(0);
+
+        A = theory.createUpgrade(
             0,
             currency,
-            new FirstFreeCost(
-                new ExponentialCost(10, Math.log2(4))
-            )
+            new FirstFreeCost(new ExponentialCost(10, Math.log2(2)))
         );
 
-        eta.getDescription = (_) =>
-            Utils.getMath(getDesc(eta.level));
-
-        eta.getInfo = (amount) =>
-            Utils.getMathTo(
-                getInfo(eta.level),
-                getInfo(eta.level + amount)
-            );
+        A.getDescription = (_) => Utils.getMath(getDesc(A.level));
+        A.getInfo = (amount) =>
+            Utils.getMathTo(getDesc(A.level), getDesc(A.level + amount));
     }
 
-    // q
-    {
-        let getDesc = (level) => "q=" + getQ(level).toString(0);
-        let getInfo = (level) => "q=" + getQ(level).toString(0);
 
-        q = theory.createUpgrade(
+    // Polynomial
+    {
+        let getDesc = (level) => "P=2^{" + level + "}";
+        let getInfo = (level) => "P=" + getP(level).toString(0);
+
+        P = theory.createUpgrade(
             1,
             currency,
-            new ExponentialCost(25, Math.log2(2))
+            new ExponentialCost(100, Math.log2(10))
         );
 
-        q.getDescription = (_) =>
-            Utils.getMath(getDesc(q.level));
-
-        q.getInfo = (amount) =>
-            Utils.getMathTo(
-                getInfo(q.level),
-                getInfo(q.level + amount)
-            );
+        P.getDescription = (_) => Utils.getMath(getDesc(P.level));
+        P.getInfo = (amount) =>
+            Utils.getMathTo(getInfo(P.level), getInfo(P.level + amount));
     }
 
-    theory.createPublicationUpgrade(0, currency, 1e6);
-    theory.createBuyAllUpgrade(1, currency, 1e8);
-    theory.createAutoBuyerUpgrade(2, currency, 1e12);
+
+    // Function input
+    {
+        let getDesc = (level) => "x=" + getX(level).toString(0);
+
+        x = theory.createUpgrade(
+            2,
+            currency,
+            new ExponentialCost(1000, Math.log2(8))
+        );
+
+        x.getDescription = (_) => Utils.getMath(getDesc(x.level));
+        x.getInfo = (amount) =>
+            Utils.getMathTo(getDesc(x.level), getDesc(x.level + amount));
+
+        x.isAvailable = false;
+    }
+
+
+    /////////////////////
+    // Permanent Upgrades
+
+    theory.createPublicationUpgrade(0, currency, 1e10);
+    theory.createBuyAllUpgrade(1, currency, 1e13);
+    theory.createAutoBuyerUpgrade(2, currency, 1e30);
+
+
+    ///////////////////////
+    // Milestones
+
+    theory.setMilestoneCost(new LinearCost(20, 20));
+
+    functions = theory.createMilestoneUpgrade(0, 1);
+
+    functions.description = "Functions";
+    functions.info = "Unlocks logarithmic functions.";
+
+    functions.boughtOrRefunded = (_) => {
+        updateAvailability();
+        theory.invalidatePrimaryEquation();
+    };
+
+    updateAvailability();
 };
+
+
+var updateAvailability = () => {
+    x.isAvailable = functions.level > 0;
+};
+
 
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
-    let bonus = theory.publicationMultiplier;
 
-    let etaValue = getEta(eta.level);
-    let qValue = getQ(q.level);
+    let production =
+        getA(A.level) *
+        getP(P.level);
 
-    let rhoDot = etaValue
-        .times(qValue)
-        .plus(BigNumber.ONE)
-        .log10();
+    if (functions.level > 0)
+        production *= getLogTerm(x.level);
 
-    currency.value = currency.value.plus(
-        rhoDot.times(dt).times(bonus)
-    );
+    currency.value += dt * theory.publicationMultiplier * production;
 };
+
 
 var getPrimaryEquation = () => {
-    return "\\dot{\\rho}=\\log_{10}(\\eta q+1)";
+    let equation = "\\dot{\\rho}=AP";
+
+    if (functions.level > 0)
+        equation += "\\log_2(x+2)";
+
+    return equation;
 };
 
-var getSecondaryEquation = () => {
-    return "\\tau=\\rho^{0.1}";
-};
 
-var getTertiaryEquation = () => {
-    return "\\eta=" + getEta(eta.level).toString(0)
-        + "\\qquad q=" + getQ(q.level).toString(0);
-};
+var getSecondaryEquation = () =>
+    theory.latexSymbol + "=\\max\\rho";
+
 
 var getPublicationMultiplier = (tau) =>
-    tau.isZero()
-        ? BigNumber.ONE
-        : tau.pow(0.15);
+    tau.pow(0.164) / BigNumber.THREE;
+
 
 var getPublicationMultiplierFormula = (symbol) =>
-    symbol + "^{0.15}";
+    "\\frac{" + symbol + "^{0.164}}{3}";
 
-var getTau = () =>
-    currency.value.pow(0.1);
+
+var getTau = () => currency.value;
+
 
 var get2DGraphValue = () =>
     currency.value.sign *
-    (BigNumber.ONE + currency.value.abs())
-        .log10()
-        .toNumber();
+    (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
-var getEta = (level) =>
+
+
+////////////////////
+// Math Functions
+
+var getA = (level) =>
+    Utils.getStepwisePowerSum(level, 2, 10, 0);
+
+
+var getP = (level) =>
     BigNumber.TWO.pow(level);
 
-var getQ = (level) =>
-    Utils.getStepwisePowerSum(
-        level,
-        2,
-        10,
-        0
-    );
 
-var getInternalState = () => "";
-var setInternalState = (_) => {};
-var postPublish = () => {};
+var getX = (level) =>
+    Utils.getStepwisePowerSum(level, 2, 10, 0);
+
+
+var getLogTerm = (level) =>
+    (getX(level) + BigNumber.TWO).log() / Math.log(2);
+
 
 init();
