@@ -14,8 +14,8 @@ var currency;
 
 var A, P, x;
 var functions;
+
 var debugPopup;
-var debugButton;
 
 var init = () => {
     currency = theory.createCurrency();
@@ -30,7 +30,7 @@ var init = () => {
         A = theory.createUpgrade(
             0,
             currency,
-            new FirstFreeCost(new ExponentialCost(10, Math.log2(2)))
+            new FirstFreeCost(new ExponentialCost(5, Math.log2(2)))
         );
 
         A.getDescription = (_) => Utils.getMath(getDesc(A.level));
@@ -47,7 +47,7 @@ var init = () => {
         P = theory.createUpgrade(
             1,
             currency,
-            new ExponentialCost(100, Math.log2(10))
+            new ExponentialCost(10, Math.log2(4))
         );
 
         P.getDescription = (_) => Utils.getMath(getDesc(P.level));
@@ -83,7 +83,7 @@ var init = () => {
 
 
     /////////////////////
-    // Debug UI
+    // Debug Popup
 
     debugPopup = ui.createPopup({
         title: "Debug Tools",
@@ -112,20 +112,6 @@ var init = () => {
     });
 
 
-    debugButton = theory.createUpgrade(
-        99,
-        currency,
-        new LinearCost(0, 0)
-    );
-
-    debugButton.getDescription = (_) => "Debug Tools";
-    debugButton.getInfo = (_) => "Open developer tools.";
-
-    debugButton.boughtOrRefunded = (_) => {
-        debugPopup.show();
-    };
-
-
     ///////////////////////
     // Milestones
 
@@ -140,6 +126,7 @@ var init = () => {
         updateAvailability();
         theory.invalidatePrimaryEquation();
     };
+
 
     updateAvailability();
 };
