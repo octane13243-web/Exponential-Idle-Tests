@@ -1,116 +1,145 @@
-import { ExponentialCost, FirstFreeCost, CustomCost } from "./api/Costs";
-import { Localization } from "./api/Localization";
-import { parseBigNumber, BigNumber } from "./api/BigNumber";
+import { ExponentialCost, FirstFreeCost, LinearCost } from "./api/Costs";
+import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "my_theory";
-var name = "Logs";
-var description = "A custom theory for Exponential Idle.";
-var authors = "Horchacha ";
+var id = "math_foundations";
+var name = "Mathematical Foundations";
+var description = "A journey through mathematics.";
+var authors = "horchata & ChatGPT";
 var version = 1;
-var releaseOrder = "1";
 
-requiresGameVersion("1.4.33");
+// ======================================
+// Debug
+// ======================================
 
-var tauMultiplier = 1;
+var DEBUG = true;
+var DEBUG_MULTIPLIER = BigNumber.from(10);
 
-// Currency
+// ======================================
+
 var currency;
+var A, P;
+var functions;
 
-// Variables
-var c;
-var q;
-
-// Internal state
-// No internal state variables
+// ======================================
 
 var init = () => {
     currency = theory.createCurrency();
 
-    ///////////////////
-    // Regular Upgrades
-    // c
+    //------------------
+    // A
+    //------------------
+
     {
-        let getDesc = (level) => "c=" + getC(level).toString(0);
-        let getInfo = (level) => "c=" + getC(level).toString(0);
-        c = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(10, 2)));
-        c.getDescription = (amount) => Utils.getMath(getDesc(c.level));
-        c.getInfo = (amount) => Utils.getMathTo(getInfo(c.level), getInfo(c.level + amount));
+        let getDesc = (level) => "A=" + getA(level).toString(0);
+
+        A = theory.createUpgrade(
+            0,
+            currency,
+            new FirstFreeCost(new ExponentialCost(10, Math.log2(2)))
+        );
+
+        A.getDescription = (_) => Utils.getMath(getDesc(A.level));
+        A.getInfo = (amount) =>
+            Utils.getMathTo(getDesc(A.level), getDesc(A.level + amount));
     }
 
-    // q
+    //------------------
+    // P
+    //------------------
+
     {
-        let getDesc = (level) => "q=" + getQ(level).toString(0);
-        let getInfo = (level) => "q=" + getQ(level).toString(0);
-        q = theory.createUpgrade(1, currency, new ExponentialCost(10, 2));
-        q.getDescription = (amount) => Utils.getMath(getDesc(q.level));
-        q.getInfo = (amount) => Utils.getMathTo(getInfo(q.level), getInfo(q.level + amount));
+        let getDesc = (level) => "P=2^{" + level + "}";
+        let getInfo = (level) => "P=" + getP(level).toString(0);
+
+        P = theory.createUpgrade(
+            1,
+            currency,
+            new ExponentialCost(100, Math.log2(10))
+        );
+
+        P.getDescription = (_) => Utils.getMath(getDesc(P.level));
+        P.getInfo = (amount) =>
+            Utils.getMathTo(getInfo(P.level), getInfo(P.level + amount));
     }
 
-    /////////////////////
-    // Permanent Upgrades
-    theory.createPublicationUpgrade(0, currency, 1);
-    theory.createBuyAllUpgrade(1, currency, 1);
-    theory.createAutoBuyerUpgrade(2, currency, 1);
+    //------------------
+    // Permanent
+    //------------------
 
-    /////////////////////
-    // Milestone Upgrades
-    theory.setMilestoneCost(new CustomCost(lvl => BigNumber.from(1 + lvl)));
-    // Milestone 1
-    {
-        let milestone0 = theory.createMilestoneUpgrade(0, 1);
-        milestone0.description = "Milestone upgrade";
-        milestone0.info = "Milestone upgrade";
-    }
-}
+    theory.createPublicationUpgrade(0, currency, 1e10);
+    theory.createBuyAllUpgrade(1, currency, 1e13);
+    theory.createAutoBuyerUpgrade(2, currency, 1e30);
+
+    //------------------
+    // Milestone
+    //------------------
+
+    theory.setMilestoneCost(new LinearCost(20, 20));
+
+    functions = theory.createMilestoneUpgrade(0, 1);
+
+    functions.description = "Unlock Functions";
+    functions.info = "Adds a logarithmic term.";
+
+    functions.boughtOrRefunded = (_) => {
+        theory.invalidatePrimaryEquation();
+    };
+};
+
+// ======================================
 
 var tick = (elapsedTime, multiplier) => {
     let dt = BigNumber.from(elapsedTime * multiplier);
     let bonus = theory.publicationMultiplier;
-    
-    let vc = getC(c.level);
-    let vq = getQ(q.level);
-    
-    // Main equation - customize this based on your theory
-    currency.value += bonus * dt * vc * vq;
-    
-    theory.invalidateTertiaryEquation();
-}
 
-var getInternalState = () => {
-    return "";
-}
+    let production =
+        getA(A.level) *
+        getP(P.level);
 
-var setInternalState = (state) => {
-    // Restore internal state from string
-}
+    if (functions.level > 0)
+        production *= BigNumber.ONE + currency.value.max(BigNumber.ONE).log2();
 
-var postPublish = () => {
-    // Reset values after publish
-}
+    currency.value += dt * bonus * production;
+
+    if (DEBUG)
+        currency.value *= DEBUG_MULTIPLIER;
+};
+
+// ======================================
 
 var getPrimaryEquation = () => {
-    return "\\dot{\\rho} = \\frac{q \\log(c)}{2}";
-}
+    let eq = "\\dot{\\rho}=AP";
 
-var getSecondaryEquation = () => {
-    return theory.latexSymbol + "=\\max\\rho";
-}
+    if (functions.level > 0)
+        eq += "\\left(1+\\log_2(\\rho+1)\\right)";
 
-var getTertiaryEquation = () => {
-    return ""rho=" + (q * Math.log(c) / 2).toString()";
-}
+    return eq;
+};
 
-var getPublicationMultiplier = (tau) => tau.isZero ? BigNumber.ONE : tau.pow(0.15);
-var getPublicationMultiplierFormula = (symbol) => "{τ}^{0.15}";
-var getTau = () => currency.value.pow(0.4;
-var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
+var getSecondaryEquation = () => theory.latexSymbol + "=\\max\\rho";
 
-// Variable getters
-var getC = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
-var getQ = (level) => BigNumber.from(2).pow(BigNumber.from(level));
+var getPublicationMultiplier = (tau) =>
+    tau.pow(0.164) / BigNumber.THREE;
 
-// No story chapters
+var getPublicationMultiplierFormula = (symbol) =>
+    "\\frac{" + symbol + "^{0.164}}{3}";
+
+var getTau = () => currency.value;
+
+var get2DGraphValue = () =>
+    currency.value.sign *
+    (BigNumber.ONE + currency.value.abs()).log10().toNumber();
+
+// ======================================
+
+var getA = (level) =>
+    Utils.getStepwisePowerSum(level, 2, 10, 0);
+
+var getP = (level) =>
+    BigNumber.TWO.pow(level);
+
+// ======================================
 
 init();
