@@ -2,6 +2,7 @@ import { ExponentialCost, FirstFreeCost, LinearCost } from "./api/Costs";
 import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
+import { ui } from "./api/ui/UI";
 
 var id = "math_foundations";
 var name = "Mathematical Foundations";
@@ -13,6 +14,8 @@ var currency;
 
 var A, P, x;
 var functions;
+var debugPopup;
+var debugButton;
 
 var init = () => {
     currency = theory.createCurrency();
@@ -77,6 +80,50 @@ var init = () => {
     theory.createPublicationUpgrade(0, currency, 1e10);
     theory.createBuyAllUpgrade(1, currency, 1e13);
     theory.createAutoBuyerUpgrade(2, currency, 1e30);
+
+
+    /////////////////////
+    // Debug UI
+
+    debugPopup = ui.createPopup({
+        title: "Debug Tools",
+        content: ui.createStackLayout({
+            children: [
+                ui.createButton({
+                    text: "Multiply ρ ×10",
+                    onClicked: () => {
+                        currency.value = currency.value * BigNumber.TEN;
+                    }
+                }),
+
+                ui.createButton({
+                    text: "Add 1e100 ρ",
+                    onClicked: () => {
+                        currency.value += BigNumber.TEN.pow(100);
+                    }
+                }),
+
+                ui.createButton({
+                    text: "Close",
+                    onClicked: () => debugPopup.hide()
+                })
+            ]
+        })
+    });
+
+
+    debugButton = theory.createUpgrade(
+        99,
+        currency,
+        new LinearCost(0, 0)
+    );
+
+    debugButton.getDescription = (_) => "Debug Tools";
+    debugButton.getInfo = (_) => "Open developer tools.";
+
+    debugButton.boughtOrRefunded = (_) => {
+        debugPopup.show();
+    };
 
 
     ///////////////////////
