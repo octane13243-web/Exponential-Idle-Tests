@@ -96,7 +96,7 @@ var init = () => {
 
 
     theory.setMilestoneCost(
-        new LinearCost(25,25)
+        new LinearCost(1,1)
     );
 
 
@@ -169,12 +169,12 @@ var getSecondaryEquation = () =>
 
 
 var getPublicationMultiplier = (tau) =>
-    tau.pow(0.164) / BigNumber.THREE;
+    tau.pow(0.5) / BigNumber.THREE;
 
 
 
 var getPublicationMultiplierFormula = (symbol) =>
-    "\\frac{" + symbol + "^{0.164}}{3}";
+    "\\frac{" + symbol + "^{0.5}}{3}";
 
 
 
