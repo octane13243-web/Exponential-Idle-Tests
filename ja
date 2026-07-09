@@ -1,36 +1,30 @@
-import { ExponentialCost, FirstFreeCost, LinearCost } from "./api/Costs";
+import { ExponentialCost, FirstFreeCost } from "./api/Costs";
 import { BigNumber } from "./api/BigNumber";
 import { theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "number_theory";
-var name = "Number Theory";
-var description = "Discover the hidden structures inside integers.";
+var id = "logarithms";
+var name = "Logarithms";
+var description = "Study logarithmic growth.";
 var authors = "horchata & ChatGPT";
 var version = 1;
-
 
 var currency;
 
 var n;
-var primePower;
-
-var factorization;
-
+var a;
 
 var init = () => {
 
     currency = theory.createCurrency();
 
-
     ///////////////////
     // Regular Upgrades
 
-
-    // Integer n
+    // n
     {
         let getDesc = (level) =>
-            "n=" + getN(level).toString(0);
+            "n=" + (level + 1);
 
         n = theory.createUpgrade(
             0,
@@ -50,76 +44,34 @@ var init = () => {
             );
     }
 
-
-
-    // Prime Power
+    // a
     {
         let getDesc = (level) =>
-            "p=2^{" + level + "}";
+            "a=2^{" + level + "}";
 
-        let getInfo = (level) =>
-            "p=" + getPrimePower(level).toString(0);
-
-
-        primePower = theory.createUpgrade(
+        a = theory.createUpgrade(
             1,
             currency,
-            new ExponentialCost(50, Math.log2(5))
+            new ExponentialCost(20, Math.log2(4))
         );
 
+        a.getDescription = (_) =>
+            Utils.getMath(getDesc(a.level));
 
-        primePower.getDescription = (_) =>
-            Utils.getMath(getDesc(primePower.level));
-
-
-        primePower.getInfo = (amount) =>
+        a.getInfo = (amount) =>
             Utils.getMathTo(
-                getInfo(primePower.level),
-                getInfo(primePower.level + amount)
+                getDesc(a.level),
+                getDesc(a.level + amount)
             );
     }
-
-
 
     /////////////////////
     // Permanent Upgrades
 
-
     theory.createPublicationUpgrade(0, currency, 1);
     theory.createBuyAllUpgrade(1, currency, 1);
     theory.createAutoBuyerUpgrade(2, currency, 1);
-
-
-
-    /////////////////////
-    // Milestones
-
-
-    theory.setMilestoneCost(
-        new LinearCost(1,1)
-    );
-
-
-    factorization = theory.createMilestoneUpgrade(
-        0,
-        1
-    );
-
-
-    factorization.description =
-        "Factorization";
-
-    factorization.info =
-        "Unlocks prime factor bonuses.";
-
-
-    factorization.boughtOrRefunded = (_) => {
-        theory.invalidatePrimaryEquation();
-    };
-
 };
-
-
 
 var tick = (elapsedTime, multiplier) => {
 
@@ -127,92 +79,40 @@ var tick = (elapsedTime, multiplier) => {
         elapsedTime * multiplier
     );
 
+    let logTerm = BigNumber
+        .from(n.level + 2)
+        .log2();
 
-    let production =
-        getN(n.level) *
-        getPrimePower(primePower.level);
-
-
-
-    if (factorization.level > 0)
-        production *= getFactorBonus(n.level);
-
-
+    let scale = BigNumber.TWO.pow(
+        a.level
+    );
 
     currency.value +=
         dt *
         theory.publicationMultiplier *
-        production;
-
+        logTerm *
+        scale;
 };
 
-
-
-var getPrimaryEquation = () => {
-
-    let equation =
-        "\\dot{\\rho}=np";
-
-
-    if (factorization.level > 0)
-        equation += "\\cdot F(n)";
-
-
-    return equation;
-};
-
-
+var getPrimaryEquation = () =>
+    "\\dot{\\rho}=a\\log_{2}(n+1)";
 
 var getSecondaryEquation = () =>
     theory.latexSymbol + "=\\max\\rho";
 
-
-
 var getPublicationMultiplier = (tau) =>
     tau.pow(0.5) / BigNumber.THREE;
-
-
 
 var getPublicationMultiplierFormula = (symbol) =>
     "\\frac{" + symbol + "^{0.5}}{3}";
 
-
-
 var getTau = () =>
     currency.value;
-
-
 
 var get2DGraphValue = () =>
     currency.value.sign *
     (BigNumber.ONE + currency.value.abs())
-    .log10()
-    .toNumber();
-
-
-
-////////////////////
-// Math Functions
-
-
-
-// Current integer
-var getN = (level) =>
-    BigNumber.from(level + 1);
-
-
-
-// Prime contribution
-var getPrimePower = (level) =>
-    BigNumber.TWO.pow(level);
-
-
-
-// Temporary factor bonus
-// Will become actual factorization later
-var getFactorBonus = (level) =>
-    getN(level).pow(0.15);
-
-
+        .log10()
+        .toNumber();
 
 init();
