@@ -1,0 +1,241 @@
+import { BigNumber, parseBigNumber } from "../api/BigNumber";
+import { ExponentialCost, FreeCost, LinearCost } from "../api/Costs";
+import { theory, QuaternaryEntry } from "../api/Theory";
+import { Utils } from "../api/Utils";
+
+var id = "cauchyRiemann";
+var name = "The Cauchy-Riemann Equations";
+var description = "Construct a holomorphic function f(z) = u + iv by keeping its four partial " +
+    "derivatives paired the way the Cauchy-Riemann equations demand: u_x with v_y, u_y with -v_x. " +
+    "Every mechanic in this theory is a different way of asking the same question - are you still in tune?";
+var authors = "juicerw";
+var version = 1;
+
+// The four partials share one cost curve and one growth curve on purpose: nothing
+// distinguishes them at first but the pairing the player has to discover for themselves.
+var uX, uY, vX, vY, purge;
+var overdrive, rawSynthesis;
+var slowDecay, gentleFloor, continuation;
+var domainMemory, purgeEfficiency;
+
+var currency;
+var u = BigNumber.ZERO, v = BigNumber.ZERO;
+var resonance = 0, domain = 0, distortion = 0;
+
+var RESONANCE_THRESHOLD = 0.9;
+var RESONANCE_CHARGE_RATE = 0.12;
+var RESONANCE_DECAY_RATE = 0.5;
+var DOMAIN_THRESHOLD = 0.95;
+var DOMAIN_RATE = 0.015;
+var OVERDRIVE_DECAY_PENALTY = 5;
+var OVERDRIVE_GAIN_SCALE = 3;
+var RAW_SYNTHESIS_GAIN = 1.6;
+var DISTORTION_ACCRUAL_RATE = 0.04;
+var DISTORTION_FLOOR_BASE = 0.15;
+
+var derivativeValue = (level) => Utils.getStepwisePowerSum(level, 2, 25, 1);
+
+var init = () => {
+    currency = theory.createCurrency();
+
+    ///////////////////
+    // The four partial derivatives - identical cost, identical growth.
+    // Compliance is what turns "buy the cheapest" into "buy the one that restores balance".
+
+    let cost = new ExponentialCost(10, Math.log2(1.17));
+
+    let makeDerivative = (regId, symbol, negative) => {
+        let upgrade = theory.createUpgrade(regId, currency, cost);
+        let display = (level) => symbol + "=" + (negative ? "-" : "") + derivativeValue(level).toString(0);
+        upgrade.getDescription = (_) => Utils.getMath(display(upgrade.level));
+        upgrade.getInfo = (amount) => Utils.getMathTo(display(upgrade.level), display(upgrade.level + amount));
+        return upgrade;
+    };
+
+    uX = makeDerivative(0, "u_x", false);
+    uY = makeDerivative(1, "u_y", false);
+    vX = makeDerivative(2, "v_x", true); // purchased magnitude of a negative slope, per its CR pairing with u_y
+    vY = makeDerivative(3, "v_y", false);
+
+    // Purge - the only way to walk back Distortion once Raw Synthesis has left scars on Compliance.
+    purge = theory.createUpgrade(4, currency, new ExponentialCost(1e4, Math.log2(3)));
+    purge.getDescription = (_) => Utils.getMath("\\delta\\rightarrow\\delta-" + (2 + purgeEfficiency.level));
+    purge.getInfo = (_) => "Repairs " + (2 + purgeEfficiency.level) + " points of accumulated Distortion.";
+    purge.canBeRefunded = (_) => false;
+    purge.bought = (amount) => { distortion = Math.max(0, distortion - amount * (2 + purgeEfficiency.level)); };
+
+    ///////////////////////////
+    // Singular upgrades - the two ways to deliberately break from pure balance.
+
+    overdrive = theory.createSingularUpgrade(0, currency, new FreeCost());
+    overdrive.maxLevel = 1;
+    overdrive.description = "Overdrive: convert your current imbalance into a direct production surge, " +
+        "at the cost of Resonance decaying far faster while engaged.";
+    overdrive.info = overdrive.description;
+    overdrive.canBeRefunded = (_) => true;
+
+    rawSynthesis = theory.createSingularUpgrade(1, currency, new FreeCost());
+    rawSynthesis.maxLevel = 1;
+    rawSynthesis.description = "Raw Synthesis: grow u and v faster, but every moment spent unbalanced " +
+        "while engaged permanently raises the floor under Compliance (Distortion).";
+    rawSynthesis.info = rawSynthesis.description;
+    rawSynthesis.canBeRefunded = (_) => true;
+
+    /////////////////////
+    // Permanent upgrades
+    theory.createPublicationUpgrade(0, currency, 1e10);
+    theory.createBuyAllUpgrade(1, currency, 1e14);
+    theory.createAutoBuyerUpgrade(2, currency, 1e20);
+
+    domainMemory = theory.createPermanentUpgrade(3, currency, new ExponentialCost(1e16, Math.log2(8)));
+    domainMemory.description = "Each publication begins with a wider inherited Domain.";
+    domainMemory.info = "+0.15 starting Domain per level";
+    domainMemory.maxLevel = 10;
+
+    purgeEfficiency = theory.createPermanentUpgrade(4, currency, new ExponentialCost(1e18, Math.log2(6)));
+    purgeEfficiency.description = "Each Purge repairs more accumulated Distortion.";
+    purgeEfficiency.info = "+1 Distortion repaired per Purge, per level";
+    purgeEfficiency.maxLevel = 10;
+
+    /////////////////////
+    // Milestone upgrades - permanent tuning of the same three rings, nothing new.
+    theory.setMilestoneCost(new LinearCost(9, 4));
+
+    slowDecay = theory.createMilestoneUpgrade(0, 3);
+    slowDecay.description = "Resonance decays 15% slower per level.";
+    slowDecay.info = slowDecay.description;
+
+    gentleFloor = theory.createMilestoneUpgrade(1, 2);
+    gentleFloor.description = "Distortion's effect on Compliance is softened by 30% per level.";
+    gentleFloor.info = gentleFloor.description;
+    gentleFloor.boughtOrRefunded = (_) => theory.invalidateTertiaryEquation();
+
+    continuation = theory.createMilestoneUpgrade(2, 2);
+    continuation.description = "Domain grows 50% faster once Resonance is sustained, per level.";
+    continuation.info = continuation.description;
+
+    updateAvailability();
+};
+
+var updateAvailability = () => {
+    overdrive.isAvailable = currency.value.toNumber() >= 1e6;
+    rawSynthesis.isAvailable = currency.value.toNumber() >= 1e12;
+    purge.isAvailable = distortion > 0;
+};
+
+///////////////////////////////////////////////
+// Shared math - used identically by tick() and by the equation display,
+// so the numbers on screen are never out of sync with the numbers in play.
+
+var getPairImbalance = (a, d) => (a - d).abs().toNumber();
+
+var getDistortionFloor = () => DISTORTION_FLOOR_BASE * (1 - 0.3 * gentleFloor.level);
+
+var getCompliance = (pair1, pair2) => 1 / (1 + pair1 + pair2 + distortion * getDistortionFloor());
+
+var getResonanceMultiplier = () => Math.pow(1 + resonance, 2);
+var getDomainMultiplier = () => Math.pow(1 + domain, 0.3);
+
+var tick = (elapsedTime, multiplier) => {
+    let dt = elapsedTime * multiplier;
+    let bigDt = BigNumber.from(dt);
+
+    let a = derivativeValue(uX.level);
+    let b = derivativeValue(uY.level);
+    let c = derivativeValue(vX.level);
+    let d = derivativeValue(vY.level);
+
+    let pair1 = getPairImbalance(a, d);
+    let pair2 = getPairImbalance(b, c);
+    let imbalance = pair1 + pair2;
+    let compliance = getCompliance(pair1, pair2);
+
+    u += bigDt * (a + b);
+    v += bigDt * (c + d);
+
+    let decayRate = RESONANCE_DECAY_RATE * (1 - 0.15 * slowDecay.level) *
+        (overdrive.level > 0 ? OVERDRIVE_DECAY_PENALTY : 1);
+    resonance = compliance >= RESONANCE_THRESHOLD
+        ? resonance + dt * RESONANCE_CHARGE_RATE * (1 - resonance)
+        : resonance - dt * decayRate * resonance;
+    resonance = Math.min(1, Math.max(0, resonance));
+
+    if (resonance >= DOMAIN_THRESHOLD) {
+        domain += dt * DOMAIN_RATE * (1 + 0.5 * continuation.level);
+    }
+
+    if (rawSynthesis.level > 0) {
+        distortion += dt * DISTORTION_ACCRUAL_RATE * imbalance;
+    }
+
+    let overdriveGain = overdrive.level > 0 ? 1 + imbalance * OVERDRIVE_GAIN_SCALE : 1;
+    let rawGain = rawSynthesis.level > 0 ? RAW_SYNTHESIS_GAIN : 1;
+    let fidelity = compliance * getResonanceMultiplier() * getDomainMultiplier() * overdriveGain * rawGain;
+
+    currency.value += bigDt * (u + v) * BigNumber.from(fidelity) * theory.publicationMultiplier;
+
+    updateAvailability();
+    theory.invalidateSecondaryEquation();
+    theory.invalidateTertiaryEquation();
+    theory.invalidateQuaternaryValues();
+};
+
+/////////////
+// Equations
+
+var getPrimaryEquation = () => "\\dot{\\rho}=(u+v)\\,\\Phi";
+
+var getSecondaryEquation = () => {
+    let a = derivativeValue(uX.level);
+    let b = derivativeValue(uY.level);
+    let c = derivativeValue(vX.level);
+    let d = derivativeValue(vY.level);
+    let pair1 = getPairImbalance(a, d);
+    let pair2 = getPairImbalance(b, c);
+    let compliance = getCompliance(pair1, pair2);
+    let phi = compliance * getResonanceMultiplier() * getDomainMultiplier();
+    return "\\Phi=C\\cdot(1+R)^2\\cdot(1+\\Omega)^{0.3}=" + phi.toFixed(3);
+};
+
+var getTertiaryEquation = () => "C=\\cfrac{1}{1+|u_x-v_y|+|u_y+v_x|+\\delta},\\ " +
+    "R=" + (resonance * 100).toFixed(1) + "\\%,\\ \\Omega=" + domain.toFixed(2) +
+    ",\\ \\delta=" + distortion.toFixed(2);
+
+var getQuaternaryEntries = () => [
+    new QuaternaryEntry("u_x", derivativeValue(uX.level).toString(0)),
+    new QuaternaryEntry("u_y", derivativeValue(uY.level).toString(0)),
+    new QuaternaryEntry("v_x", "-" + derivativeValue(vX.level).toString(0)),
+    new QuaternaryEntry("v_y", derivativeValue(vY.level).toString(0))
+];
+
+var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
+
+var getPublicationMultiplier = (tau) => tau.pow(0.15) / BigNumber.FOUR;
+var getPublicationMultiplierFormula = (symbol) => "\\frac{{" + symbol + "}^{0.15}}{4}";
+var getTau = () => currency.value;
+
+/////////////////////
+// Save / publication
+
+var getInternalState = () => `${u} ${v} ${resonance} ${domain} ${distortion}`;
+
+var setInternalState = (state) => {
+    let values = state.split(" ");
+    if (values.length > 0) u = parseBigNumber(values[0]);
+    if (values.length > 1) v = parseBigNumber(values[1]);
+    if (values.length > 2) resonance = parseFloat(values[2]);
+    if (values.length > 3) domain = parseFloat(values[3]);
+    if (values.length > 4) distortion = parseFloat(values[4]);
+};
+
+var postPublish = () => {
+    u = BigNumber.ZERO;
+    v = BigNumber.ZERO;
+    resonance = 0;
+    domain = domainMemory.level * 0.15;
+    distortion = 0;
+    overdrive.level = 0;
+    rawSynthesis.level = 0;
+};
+
+init();
