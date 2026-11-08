@@ -1,145 +1,236 @@
-import { ExponentialCost, FirstFreeCost, LinearCost } from "./api/Costs";
-import { BigNumber } from "./api/BigNumber";
-import { theory } from "./api/Theory";
+import { CustomCost, ExponentialCost, FirstFreeCost } from "./api/Costs";
+import { Localization } from "./api/Localization";
+import { BigNumber, parseBigNumber } from "./api/BigNumber";
+import { QuaternaryEntry, theory } from "./api/Theory";
 import { Utils } from "./api/Utils";
 
-var id = "math_foundations";
-var name = "Mathematical Foundations";
-var description = "A journey through mathematics.";
-var authors = "horchata & ChatGPT";
+var id = "truncated_exponential";
+var name = "Truncated Exponential";
+var description =
+"What happens if you cut the series of e^q short?\n\n" +
+"Income is c1*c2 times the Taylor polynomial of e^q with n terms.\n" +
+"The variable q is not free: it relaxes toward the cap q1*q2, " +
+"q' = (q1*q2 - q)/30, so q(t) = q1*q2*(1 - e^(-t/30)).\n\n" +
+"While q is small compared to n, the polynomial tracks e^q and income explodes. " +
+"Once q passes n, the last term q^n/n! takes over and growth turns polynomial. " +
+"Buying more terms pushes that wall back.";
+var authors = "βωοναμο";
 var version = 1;
 
-// ======================================
-// Debug
-// ======================================
+// ---- design constants -------------------------------------------------------
+const tauRate = 0.4;                 // tau = rho^0.4
+const pubExp = 0.4;                  // publication multiplier = tau^0.4 = rho^0.16
+const relaxTime = 30;                // time constant of q, in seconds
+const relaxK = BigNumber.ONE / BigNumber.from(relaxTime);   // k = 1/30
+const smallStep = BigNumber.from(0.05);                      // threshold on k*dt (see integrateTaylor)
+const milestoneCosts = [4, -1];      // log10(tau): first milestone at tau = 1e4 (rho = 1e10)
 
-var DEBUG = true;
-var DEBUG_MULTIPLIER = BigNumber.from(10);
-
-// ======================================
-
+// ---- state ------------------------------------------------------------------
 var currency;
-var A, P;
-var functions;
+var c1, c2, q1, q2;
+var nTerm;                           // milestone: each level adds one Taylor term
+var quaternaryEntries = [];
 
-// ======================================
+var q = BigNumber.ZERO;
+var rhodot = BigNumber.ZERO;
 
 var init = () => {
     currency = theory.createCurrency();
 
-    //------------------
-    // A
-    //------------------
+    ///////////////////
+    // Regular Upgrades
 
+    // c1
     {
-        let getDesc = (level) => "A=" + getA(level).toString(0);
-
-        A = theory.createUpgrade(
-            0,
-            currency,
-            new FirstFreeCost(new ExponentialCost(10, Math.log2(2)))
-        );
-
-        A.getDescription = (_) => Utils.getMath(getDesc(A.level));
-        A.getInfo = (amount) =>
-            Utils.getMathTo(getDesc(A.level), getDesc(A.level + amount));
+        let getDesc = (level) => "c_1=" + getC1(level).toString(0);
+        c1 = theory.createUpgrade(0, currency, new FirstFreeCost(new ExponentialCost(10, Math.log2(1.6))));
+        c1.getDescription = (_) => Utils.getMath(getDesc(c1.level));
+        c1.getInfo = (amount) => Utils.getMathTo(getDesc(c1.level), getDesc(c1.level + amount));
     }
 
-    //------------------
-    // P
-    //------------------
-
+    // c2
     {
-        let getDesc = (level) => "P=2^{" + level + "}";
-        let getInfo = (level) => "P=" + getP(level).toString(0);
-
-        P = theory.createUpgrade(
-            1,
-            currency,
-            new ExponentialCost(100, Math.log2(10))
-        );
-
-        P.getDescription = (_) => Utils.getMath(getDesc(P.level));
-        P.getInfo = (amount) =>
-            Utils.getMathTo(getInfo(P.level), getInfo(P.level + amount));
+        let getDesc = (level) => "c_2=2^{" + level + "}";
+        let getInfo = (level) => "c_2=" + getC2(level).toString(0);
+        c2 = theory.createUpgrade(1, currency, new ExponentialCost(30, 6));
+        c2.getDescription = (_) => Utils.getMath(getDesc(c2.level));
+        c2.getInfo = (amount) => Utils.getMathTo(getInfo(c2.level), getInfo(c2.level + amount));
     }
 
-    //------------------
-    // Permanent
-    //------------------
+    // q1
+    {
+        let getDesc = (level) => "q_1=" + getQ1(level).toString(0);
+        q1 = theory.createUpgrade(2, currency, new ExponentialCost(15, Math.log2(1.6)));
+        q1.getDescription = (_) => Utils.getMath(getDesc(q1.level));
+        q1.getInfo = (amount) => Utils.getMathTo(getDesc(q1.level), getDesc(q1.level + amount));
+    }
 
+    // q2
+    {
+        let getDesc = (level) => "q_2=2^{" + level + "}";
+        let getInfo = (level) => "q_2=" + getQ2(level).toString(0);
+        q2 = theory.createUpgrade(3, currency, new ExponentialCost(100, 6));
+        q2.getDescription = (_) => Utils.getMath(getDesc(q2.level));
+        q2.getInfo = (amount) => Utils.getMathTo(getInfo(q2.level), getInfo(q2.level + amount));
+    }
+
+    /////////////////////
+    // Permanent Upgrades (costs beyond the first publication are placeholders)
     theory.createPublicationUpgrade(0, currency, 1e10);
     theory.createBuyAllUpgrade(1, currency, 1e13);
-    theory.createAutoBuyerUpgrade(2, currency, 1e30);
+    theory.createAutoBuyerUpgrade(2, currency, 1e20);
 
-    //------------------
-    // Milestone
-    //------------------
+    ///////////////////////
+    //// Milestone Upgrades
+    theory.setMilestoneCost(new CustomCost((lvl) => BigNumber.from(milestoneCosts[Math.min(lvl, milestoneCosts.length - 1)])));
 
-    theory.setMilestoneCost(new LinearCost(20, 20));
+    {
+        nTerm = theory.createMilestoneUpgrade(0, 1);
+        nTerm.description = Localization.getUpgradeAddTermDesc("\\frac{q^2}{2!}");
+        nTerm.info = Localization.getUpgradeAddTermInfo("\\frac{q^2}{2!}");
+        nTerm.boughtOrRefunded = (_) => theory.invalidatePrimaryEquation();
+    }
+}
 
-    functions = theory.createMilestoneUpgrade(0, 1);
+// ---- math helpers -----------------------------------------------------------
 
-    functions.description = "Unlock Functions";
-    functions.info = "Adds a logarithmic term.";
+// 1 - e^{-x}. For tiny x the direct difference loses digits, so use the series
+// x(1 - x/2 + x^2/6), whose first omitted term is x^4/24.
+var oneMinusExp = (x) => {
+    if (x < BigNumber.from(1e-4))
+        return x * (BigNumber.ONE - x / BigNumber.TWO + x * x / BigNumber.SIX);
+    return BigNumber.ONE - (-x).exp();
+}
 
-    functions.boughtOrRefunded = (_) => {
-        theory.invalidatePrimaryEquation();
-    };
-};
+// e_n(z) = sum_{k=0}^{n} z^k / k!  via Horner: 1 + z/1 (1 + z/2 (1 + ... (1 + z/n)))
+var taylorExp = (z, n) => {
+    let s = BigNumber.ONE;
+    for (let k = n; k >= 1; --k)
+        s = BigNumber.ONE + s * z / BigNumber.from(k);
+    return s;
+}
 
-// ======================================
+// Integral over [0, dt] of e_n(q(s)) ds, where q(s) = Q + (q0 - Q) e^{-k s}.
+//  - Small k*dt (normal ticks): Simpson's rule on q(0), q(dt/2), q(dt).
+//    q is smooth, so the relative error is about (k*dt)^4 / 2880.
+//  - Large k*dt (offline progress): the exact closed form
+//        sum_{j=0}^{n} (D^j / j!) * I_j * e_{n-j}(Q),   D = q0 - Q,
+//        I_0 = dt,  I_j = (1 - e^{-j k dt}) / (j k)
+//    obtained by expanding q^m binomially and integrating each exponential.
+var integrateTaylor = (q0, Q, dt, x, n) => {
+    if (x < smallStep) {
+        let qMid = q0 + oneMinusExp(x / BigNumber.TWO) * (Q - q0);
+        let qEnd = q0 + oneMinusExp(x) * (Q - q0);
+        return dt * (taylorExp(q0, n) + BigNumber.FOUR * taylorExp(qMid, n) + taylorExp(qEnd, n)) / BigNumber.SIX;
+    }
+
+    // partial[m] = e_m(Q)
+    let partial = [];
+    let term = BigNumber.ONE;
+    let sum = BigNumber.ONE;
+    partial.push(sum);
+    for (let m = 1; m <= n; ++m) {
+        term = term * Q / BigNumber.from(m);
+        sum = sum + term;
+        partial.push(sum);
+    }
+
+    let delta = q0 - Q;
+    let result = dt * partial[n];
+    let dPow = BigNumber.ONE;                         // D^j / j!
+    for (let j = 1; j <= n; ++j) {
+        dPow = dPow * delta / BigNumber.from(j);
+        let jBig = BigNumber.from(j);
+        result = result + dPow * oneMinusExp(x * jBig) / (jBig * relaxK) * partial[n - j];
+    }
+    return result;
+}
+
+// ---- main loop --------------------------------------------------------------
 
 var tick = (elapsedTime, multiplier) => {
+    if (c1.level == 0) return;
+
     let dt = BigNumber.from(elapsedTime * multiplier);
     let bonus = theory.publicationMultiplier;
+    let n = getN();
 
-    let production =
-        getA(A.level) *
-        getP(P.level);
+    let vc = getC1(c1.level) * getC2(c2.level);
+    let vQ = getQ1(q1.level) * getQ2(q2.level);       // the cap that q relaxes toward
 
-    if (functions.level > 0)
-        production *= BigNumber.ONE + currency.value.max(BigNumber.ONE).log2();
+    let x = dt * relaxK;                              // k * dt
+    let integral = integrateTaylor(q, vQ, dt, x, n);  // uses q at the start of the tick
 
-    currency.value += dt * bonus * production;
+    // exact solution of q' = k (Q - q) over the tick
+    q = q + oneMinusExp(x) * (vQ - q);
 
-    if (DEBUG)
-        currency.value *= DEBUG_MULTIPLIER;
-};
+    currency.value += bonus * vc * integral;
+    rhodot = dt.isZero ? BigNumber.ZERO : bonus * vc * integral / dt;
 
-// ======================================
+    theory.invalidateQuaternaryValues();
+}
+
+// ---- equations --------------------------------------------------------------
 
 var getPrimaryEquation = () => {
-    let eq = "\\dot{\\rho}=AP";
+    let n = getN();
+    let series;
+    if (n == 1) series = "\\left(1+q\\right)";
+    else if (n == 2) series = "\\left(1+q+\\frac{q^2}{2}\\right)";
+    else series = "\\sum_{k=0}^{" + n + "}\\frac{q^k}{k!}";
+    return "\\dot{\\rho}=c_1c_2" + series;
+}
 
-    if (functions.level > 0)
-        eq += "\\left(1+\\log_2(\\rho+1)\\right)";
+var getSecondaryEquation = () => {
+    let result = "\\dot{q}=\\frac{1}{" + relaxTime + "}\\left(q_1q_2-q\\right)";
+    return result;
+}
 
-    return eq;
-};
+var getTertiaryEquation = () => theory.latexSymbol + "=\\max\\rho^{" + tauRate + "}";
 
-var getSecondaryEquation = () => theory.latexSymbol + "=\\max\\rho";
+var getQuaternaryEntries = () => {
+    if (quaternaryEntries.length == 0) {
+        quaternaryEntries.push(new QuaternaryEntry("q", null));
+        quaternaryEntries.push(new QuaternaryEntry("q_1q_2", null));
+        quaternaryEntries.push(new QuaternaryEntry("\\dot{\\rho}", null));
+    }
+    quaternaryEntries[0].value = q.toString(2);
+    quaternaryEntries[1].value = (getQ1(q1.level) * getQ2(q2.level)).toString(2);
+    quaternaryEntries[2].value = rhodot.toString(2);
+    return quaternaryEntries;
+}
 
-var getPublicationMultiplier = (tau) =>
-    tau.pow(0.164) / BigNumber.THREE;
+// ---- publication / tau ------------------------------------------------------
 
-var getPublicationMultiplierFormula = (symbol) =>
-    "\\frac{" + symbol + "^{0.164}}{3}";
+var getPublicationMultiplier = (tau) => tau.pow(pubExp);
+var getPublicationMultiplierFormula = (symbol) => "{" + symbol + "}^{" + pubExp + "}";
+var getTau = () => currency.value.pow(tauRate);
+var getCurrencyFromTau = (tau) => [tau.max(BigNumber.ONE).pow(1 / tauRate), currency.symbol];
+var get2DGraphValue = () => currency.value.sign * (BigNumber.ONE + currency.value.abs()).log10().toNumber();
 
-var getTau = () => currency.value;
+var postPublish = () => {
+    q = BigNumber.ZERO;
+    rhodot = BigNumber.ZERO;
+    theory.invalidateQuaternaryValues();
+}
 
-var get2DGraphValue = () =>
-    currency.value.sign *
-    (BigNumber.ONE + currency.value.abs()).log10().toNumber();
+// ---- save / load ------------------------------------------------------------
+// q relaxes exponentially, so any rounding in the saved string heals itself.
 
-// ======================================
+var getInternalState = () => q.toString();
 
-var getA = (level) =>
-    Utils.getStepwisePowerSum(level, 2, 10, 0);
+var setInternalState = (state) => {
+    if (!state) return;
+    let values = state.split(" ");
+    if (values.length > 0 && values[0].length > 0) q = parseBigNumber(values[0]);
+}
 
-var getP = (level) =>
-    BigNumber.TWO.pow(level);
+// ---- variable values --------------------------------------------------------
 
-// ======================================
+var getN = () => 1 + nTerm.level;
+var getC1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
+var getC2 = (level) => BigNumber.TWO.pow(level);
+var getQ1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
+var getQ2 = (level) => BigNumber.TWO.pow(level);
 
 init();
